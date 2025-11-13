@@ -8,6 +8,13 @@
 #   1) Move it to the repo root at `.github/workflows/`, or
 #   2) Convert it to a reusable workflow by replacing `on:` with `workflow_call:`
 #      and calling it from a root workflow with `uses: ./.github/workflows/<file>.yml`.
+#
+# This CI/CD pipeline includes:
+# - Application deployment with Ingress support (nginx for Minikube)
+# - Unit tests for Flask application
+# - Kubernetes integration tests (auto-detects NodePort vs Ingress)
+# - Ingress-specific tests (skipped if Ingress not deployed)
+# - Smoke tests and security scanning
 # ---------------------------------------------------------------------------------
 name: Flask CI/CD Pipeline (nested reference – not executed)
 
@@ -127,6 +134,21 @@ jobs:
           driver: docker
           cpus: 2
           memory: 4g
+      
+      # --- Enable Ingress addon for Minikube ---
+      - name: Enable Ingress controller
+        timeout-minutes: 5
+        run: |
+          echo "Enabling nginx ingress addon..."
+          minikube addons enable ingress
+          
+          echo "Waiting for ingress controller to be ready..."
+          kubectl wait --namespace ingress-nginx \
+            --for=condition=ready pod \
+            --selector=app.kubernetes.io/component=controller \
+            --timeout=180s
+          
+          echo "✓ Ingress controller is ready"
           
       # --- Step 5: Docker layer caching (guarded) ---
       # Prepare buildx cache directories so build works even without a restored cache
@@ -163,7 +185,7 @@ jobs:
             -t ${{ env.DOCKER_IMAGE_NAME }}:latest \
             app/
 
-      # --- Step 7: Deploy app (skip for PRs) ---
+      # --- Step 7: Deploy app with Ingress (skip for PRs) ---
       - name: Deploy app
         timeout-minutes: 10
         if: ${{ github.event_name != 'pull_request' }}  # Skip deployment for PRs
@@ -176,6 +198,23 @@ jobs:
         run: |
           echo "Waiting for pods to be ready..."
           kubectl wait --for=condition=ready pod -l app=hello-flask --timeout=300s
+          
+          echo "Waiting for Ingress to get an address..."
+          # Wait up to 3 minutes for ingress controller to assign an address
+          for i in {1..36}; do
+            ADDRESS=$(kubectl get ingress hello-flask-ingress -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || echo "")
+            if [ -n "$ADDRESS" ]; then
+              echo "✓ Ingress has address: $ADDRESS"
+              break
+            fi
+            echo "Waiting for Ingress address... (attempt $i/36)"
+            sleep 5
+          done
+          
+          # Verify Ingress configuration
+          echo "Ingress status:"
+          kubectl get ingress hello-flask-ingress
+          kubectl describe ingress hello-flask-ingress
           
       # --- Step 9: Run Unit Tests ---
       - name: Run unit tests

@@ -1,10 +1,10 @@
 #!/bin/bash
 # -----------------------------------------------------------------------------
 # Manual helper: Port-forward the hello-flask Kubernetes service for a quick
-# local check. Not used by CI.
+# local check. Works with both NodePort and ClusterIP services.
 #
 # CI coverage: Service reachability is validated in pytest via
-#   flask-k8s/test_k8s/test_service_access.py
+#   test_k8s/test_service_access.py
 #
 # Requirements:
 # - Minikube is running and configured (uses `minikube kubectl -- ...`).
@@ -20,14 +20,24 @@
 #
 # Note: For an interactive tunnel, run the port-forward manually and stop with
 # Ctrl+C:
-#   minikube kubectl -- port-forward svc/hello-flask 5000:5000
+#   kubectl port-forward svc/hello-flask 5000:5000
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
 port_forward_app() {
+    echo "[INFO] Checking service type..."
+    SERVICE_TYPE=$(kubectl get svc hello-flask -o jsonpath='{.spec.type}' 2>/dev/null || echo "NotFound")
+    
+    if [ "$SERVICE_TYPE" = "NotFound" ]; then
+        echo "[ERROR] Service 'hello-flask' not found. Please deploy it first."
+        exit 1
+    fi
+    
+    echo "[INFO] Service type: $SERVICE_TYPE"
+    
     echo "[INFO] Forwarding port 5000 from hello-flask service to localhost..."
     echo "[INFO] Starting port forward in background..."
-    minikube kubectl -- port-forward svc/hello-flask 5000:5000 &
+    kubectl port-forward svc/hello-flask 5000:5000 &
     PORT_FORWARD_PID=$!
 
     echo "[INFO] Port forward PID: $PORT_FORWARD_PID"
@@ -35,12 +45,22 @@ port_forward_app() {
     sleep 3
 
     echo "[INFO] Testing the service..."
-    curl -s http://localhost:5000 || echo "[ERROR] Curl failed"
+    if curl -s http://localhost:5000; then
+        echo ""
+        echo "[SUCCESS] Service is responding!"
+    else
+        echo "[ERROR] Curl failed"
+    fi
 
     echo "[INFO] Killing port forward process..."
     kill $PORT_FORWARD_PID || true
 
     echo "[INFO] Done!"
+    echo ""
+    echo "Note: Port-forward works with both NodePort and ClusterIP services."
+    if [ "$SERVICE_TYPE" = "ClusterIP" ]; then
+        echo "Detected ClusterIP service. You can also access via Ingress if configured."
+    fi
 }
 
 # Run function

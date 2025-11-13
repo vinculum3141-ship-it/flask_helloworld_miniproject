@@ -1,9 +1,7 @@
-If you’re approaching this as a test engineer, you’re thinking not *just how to deploy*, but *how to structure, validate, and maintain* the project properly — including tests, configuration, and reproducibility.
-
-Let’s go over what the file/package structure should look like when a **test engineer** (QA or SDET) organizes the “Mini Task” project — a simple app deployed to **Kubernetes (Minikube/EKS)** with **testability and CI/CD readiness** in mind.
+blah blah why move to EKS
 
 Note:     
-Use a python virtual environment for development and testing. In your working directory `flask-k8s`:
+Use a python virtual environment for development and testing.
 ```
 python3 -m venv .venv
 source .venv/bin/activate
@@ -25,9 +23,18 @@ Make sure you have installed:
 
 Also, ensure Python packages for testing are installed:
 
+```bash
+# Install Flask app dependencies
+pip install -r app/requirements.txt
+
+# Install testing dependencies
+pip install pytest requests
 ```
-pip install -r app/requirements.txt pytest requests
-```
+
+**Required packages:**
+- `pytest` - Test framework for running unit and integration tests
+- `requests` - HTTP library for testing service endpoints
+- Flask dependencies from `app/requirements.txt`
 
 ## Start Minikube
 ```
@@ -56,16 +63,54 @@ kubectl apply -f k8s/secret.yaml
 ```
 
 ## Deploy the app to Kubernetes
+
+### Option A: Direct Access (without Ingress)
+If you want to access the app via NodePort (simpler, for quick testing):
+
+1. Change Service type back to NodePort in `k8s/service.yaml`:
+```yaml
+spec:
+  type: NodePort  # Change from ClusterIP to NodePort
+```
+
+2. Deploy:
 ```
 kubectl apply -f k8s/deployment.yaml
 kubectl apply -f k8s/service.yaml
 ```
+
+3. Access via: `minikube service hello-flask --url`
+
+### Option B: Using Ingress (production-like setup)
+For a more production-like setup with Ingress:
+
+1. Setup Ingress controller (only needed once):
+```
+bash scripts/setup_ingress.sh
+```
+This enables nginx ingress on Minikube and configures `/etc/hosts`.
+
+2. Deploy application with Ingress:
+```
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+3. Wait for Ingress to be ready:
+```
+kubectl get ingress hello-flask-ingress -w
+```
+Wait until you see an ADDRESS assigned (Ctrl+C to exit).
+
+4. Access via: `http://hello-flask.local`
 
 Check that Pods are running:
 ```
 kubectl get pods
 kubectl get deployments
 kubectl get svc
+kubectl get ingress
 ```
 
 Wait until Pods show `STATUS=Running`.
@@ -83,8 +128,8 @@ kubectl exec -it $POD -- env | grep -E 'APP_ENV|LOG_LEVEL|API_KEY|DB_PASSWORD|CU
 
 Expected output:
 ```
-APP_ENV=staging
-LOG_LEVEL=info
+APP_ENV=local
+LOG_LEVEL=debug
 FEATURE_FLAG_GREETING=true
 API_KEY=somesecretkey
 DB_PASSWORD=password123
@@ -106,14 +151,47 @@ pytest app/tests/ -v
 * Example output: `test_app.py::test_hello_route PASSED`
 
 ## Run Kubernetes-Level Tests
+
 These tests check that your deployment and services are working in the cluster.
+
+**✅ Tests work with BOTH NodePort and Ingress deployments!**
+
 ```
 pytest test_k8s/ -v
 ```
 
-Examples of what happens:
-* `test_deployment.py` → verifies Pods are Running.
-* `test_service_access.py` → verifies the service endpoint responds (`minikube service hello-flask --url`).
+### What the tests do:
+
+* **`test_deployment.py`** → Verifies Pods are Running
+  - ✅ Works with both NodePort and Ingress
+
+* **`test_configmap.py`** → Verifies ConfigMap environment variables
+  - ✅ Works with both NodePort and Ingress
+
+* **`test_service_access.py`** → Verifies service endpoint responds
+  - ✅ **Auto-detects service type** (NodePort or ClusterIP)
+  - For NodePort: Uses `minikube service hello-flask --url`
+  - For ClusterIP + Ingress: Tests via Ingress host (e.g., `http://hello-flask.local`)
+
+* **`test_ingress.py`** → Verifies Ingress configuration (if deployed)
+  - ⚠️ Only runs when Ingress is deployed (skips otherwise)
+  - Checks Ingress rules, backend service, and address assignment
+
+### Running specific tests:
+
+```bash
+# Run all K8s tests
+pytest test_k8s/ -v
+
+# Run only deployment tests
+pytest test_k8s/test_deployment.py -v
+
+# Run only service access tests
+pytest test_k8s/test_service_access.py -v
+
+# Run only ingress tests (when using Ingress)
+pytest test_k8s/test_ingress.py -v
+```
 
 ## Run Smoke Tests (Optional Script)
 The `smoke_test.sh` script runs all K8s tests automatically:
@@ -127,13 +205,23 @@ Output will show:
 * Service accessibility
 
 ## Access the App Locally
-### Option 1: Minikube service URL:
+
+### With Ingress (Option B):
+If you deployed with Ingress:
+```
+curl http://hello-flask.local
+# or open http://hello-flask.local in browser
+```
+
+### Without Ingress (Option A - NodePort):
+
+#### Method 1: Minikube service URL:
 ```
 minikube service hello-flask --url
 # Opens the service in browser or shows URL like http://192.168.49.2:32000
 ```
 
-### Option 2: Port-forward:
+#### Method 2: Port-forward:
 ```
 kubectl port-forward svc/hello-flask 5000:5000
 # Then open http://localhost:5000
@@ -141,12 +229,87 @@ kubectl port-forward svc/hello-flask 5000:5000
 
 ## Clean Up Local Minikube Resources
 ```
+kubectl delete -f k8s/ingress.yaml     # if using Ingress
 kubectl delete -f k8s/service.yaml
 kubectl delete -f k8s/deployment.yaml
 kubectl delete -f k8s/configmap.yaml
 kubectl delete -f k8s/secret.yaml
 minikube stop
 ```
+
+## Deploying to AWS EKS (Production)
+
+When deploying to EKS, the Ingress setup is different:
+
+### Prerequisites for EKS
+1. **AWS Load Balancer Controller** installed in your EKS cluster
+2. **IAM permissions** for the controller to create ALBs
+3. **DNS configuration** (Route53 or similar)
+4. **SSL certificate** in AWS Certificate Manager (optional, for HTTPS)
+
+### EKS Deployment Steps
+
+1. **Install AWS Load Balancer Controller** (one-time setup):
+```bash
+# Follow AWS documentation to install the controller
+# https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
+```
+
+2. **Update Ingress for EKS**:
+Edit `k8s/ingress.yaml` and uncomment the EKS section (or create a separate file):
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: hello-flask-ingress
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/id
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+spec:
+  rules:
+  - host: your-domain.example.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: hello-flask
+            port:
+              number: 5000
+```
+
+3. **Deploy to EKS**:
+```bash
+kubectl apply -f k8s/configmap.yaml
+kubectl apply -f k8s/secret.yaml
+kubectl apply -f k8s/deployment.yaml
+kubectl apply -f k8s/service.yaml
+kubectl apply -f k8s/ingress.yaml
+```
+
+4. **Get ALB DNS name**:
+```bash
+kubectl get ingress hello-flask-ingress
+# Shows ADDRESS with ALB DNS name
+```
+
+5. **Configure DNS**: Point your domain to the ALB DNS using a CNAME record in Route53.
+
+### Key Differences: Minikube vs EKS
+
+| Feature | Minikube (Local) | EKS (Production) |
+|---------|------------------|------------------|
+| Ingress Controller | nginx | AWS Load Balancer Controller |
+| Load Balancer | None (uses minikube IP) | Application Load Balancer (ALB) |
+| DNS | /etc/hosts entry | Route53 or external DNS |
+| SSL/TLS | Manual cert or none | AWS Certificate Manager |
+| Cost | Free | Pay for ALB + data transfer |
+| Access | http://hello-flask.local | https://your-domain.com |
 
 
 # Automation scripts

@@ -62,6 +62,9 @@ deploy_app() {
     minikube kubectl -- apply -f k8s/deployment.yaml
     minikube kubectl -- apply -f k8s/service.yaml
 
+    echo "[INFO] Deploying Ingress..."
+    minikube kubectl -- apply -f k8s/ingress.yaml
+
     echo "[INFO] Waiting for deployment rollout (timeout 5m)..."
     # add a timeout so this step doesn't hang indefinitely
     minikube kubectl -- rollout status deployment/hello-flask --timeout=5m

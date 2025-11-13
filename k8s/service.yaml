@@ -1,0 +1,17 @@
+# This YAML file defines a Kubernetes Service of type NodePort for the "hello-flask" application.
+# It exposes the Flask app running on port 5000 inside the pods to an external port on each node in the cluster.
+# The service forwards traffic from the node's port to port 5000 in the pods selected by the label `app: hello-flask`.
+# This allows external access to your Flask app from outside the Kubernetes cluster.
+apiVersion: v1
+kind: Service
+metadata:
+  name: hello-flask
+spec:
+  type: NodePort
+  selector:
+    app: hello-flask
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
+      # nodePort: 30xxx  # optional; if omitted Kubernetes picks one in 30000-32767

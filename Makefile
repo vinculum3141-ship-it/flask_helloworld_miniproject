@@ -41,6 +41,6 @@ help:
 	@echo "  test-all      - Run all tests"
 	@echo "  smoke-test    - Run smoke tests"
 	@echo "  port-forward  - Forward service port to localhost"
-	@echo "  minikube-url  - Get minikube service URL"
+	@echo "  minikube-url  - Get service URL and access methods"
 	@echo "  full-deploy   - Complete build, deploy, and smoke test"
 	@echo "  help          - Show this help message"

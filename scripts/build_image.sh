@@ -17,18 +17,32 @@
 
 set -e
 
-# Function: build Docker image for Minikube
-build_image() {
-    echo "[INFO] Switching to Minikube Docker environment..."
-    eval $(minikube docker-env)
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+NC='\033[0m' # No Color
 
-    echo "[INFO] Building Docker image 'hello-flask:latest'..."
-    docker build -t hello-flask:latest ./app
-
-    echo "[INFO] Docker image built successfully."
-    docker images | grep hello-flask
-
+print_header() {
+    echo -e "${BLUE}================================================${NC}"
+    echo -e "${BLUE}  Building Docker Image${NC}"
+    echo -e "${BLUE}================================================${NC}"
 }
 
-# Run function
+# Function: build Docker image for Minikube
+build_image() {
+    echo -e "\n${GREEN}[INFO] Switching to Minikube Docker environment...${NC}"
+    eval $(minikube docker-env)
+
+    echo -e "${GREEN}[INFO] Building Docker image 'hello-flask:latest'...${NC}"
+    docker build -t hello-flask:latest ./app
+
+    echo -e "\n${GREEN}[INFO] Docker image built successfully.${NC}"
+    echo -e "${YELLOW}Available images:${NC}"
+    docker images | grep hello-flask || echo "No hello-flask images found"
+}
+
+# Run
+print_header
 build_image
+echo -e "\n${GREEN}✅ Image build completed!${NC}\n"

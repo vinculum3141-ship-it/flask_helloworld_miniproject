@@ -97,26 +97,20 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pip-
 
-      # Safe Python virtualenv restore. If cache is unavailable or from a fork, this is skipped and the next step will create the venv.
-      - name: Restore Python virtualenv (safe)
-        if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
-        uses: actions/cache@v4
-        continue-on-error: true
-        with:
-          path: .venv
-          key: ${{ runner.os }}-venv-py${{ env.PYTHON_VERSION }}-${{ hashFiles('app/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-venv-py${{ env.PYTHON_VERSION }}-
+      # Note: Virtualenv cache removed - always create fresh venv to avoid issues after repo rename
 
       # --- Step 3: Install dependencies (use venv) ---
       - name: Install Python dependencies (venv)
         timeout-minutes: 10
         run: |
+          # Remove any existing venv to ensure clean state
+          rm -rf .venv
           python -m venv .venv
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
           source .venv/bin/activate
           pip install --upgrade pip
           pip install -r app/requirements.txt pytest requests
+          # Add venv to PATH for subsequent steps
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
         
       # --- Step 4: Setup Docker & Minikube ---
       - name: Setup Docker

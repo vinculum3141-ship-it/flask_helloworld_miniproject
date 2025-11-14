@@ -191,7 +191,14 @@ pytest test_k8s/test_service_access.py -v
 
 # Run only ingress tests (when using Ingress)
 pytest test_k8s/test_ingress.py -v
+
+# Simulate CI/CD environment (uses Minikube IP + Host header)
+CI=true pytest test_k8s/test_service_access.py -v -s
 ```
+
+**Note:** Tests automatically detect the environment:
+- **Local**: Uses `http://hello-flask.local` (requires `/etc/hosts` configured)
+- **CI/CD**: Uses `http://<minikube-ip>` with `Host: hello-flask.local` header
 
 ## Run Smoke Tests (Optional Script)
 The `smoke_test.sh` script runs all K8s tests automatically:
@@ -236,6 +243,84 @@ kubectl delete -f k8s/configmap.yaml
 kubectl delete -f k8s/secret.yaml
 minikube stop
 ```
+
+## Troubleshooting
+
+### Local Testing Issues
+
+**Problem: Getting 404 when accessing Minikube IP directly**
+
+If you try to access the app via `http://$(minikube ip)` and get a 404:
+
+```bash
+curl http://192.168.49.2
+# Returns: 404 Not Found
+```
+
+**Cause:** Nginx Ingress uses the `Host` HTTP header for routing. When you access via IP, it doesn't match the configured hostname.
+
+**Solutions:**
+
+1. **Use the configured hostname** (recommended for local dev):
+   ```bash
+   curl http://hello-flask.local
+   # Make sure /etc/hosts is configured (run scripts/setup_ingress.sh)
+   ```
+
+2. **Send the correct Host header**:
+   ```bash
+   curl -H "Host: hello-flask.local" http://$(minikube ip)
+   # This works! Nginx sees the correct host header
+   ```
+
+3. **Use port-forward** (bypasses Ingress):
+   ```bash
+   kubectl port-forward svc/hello-flask 5000:5000
+   curl http://localhost:5000
+   ```
+
+**Note:** The tests automatically handle this by sending the correct `Host` header when needed!
+
+### CI/CD Pipeline Issues
+
+If `test_service_reachable` fails in GitHub Actions:
+
+1. **Check the workflow logs** for:
+   - Ingress controller status
+   - Ingress address assignment
+   - Minikube IP
+   - Service and pod status
+
+2. **Common issue**: Ingress hostname not resolving in CI
+   - **Solution**: The test automatically uses Minikube IP in CI/CD environments
+   - No `/etc/hosts` configuration needed in GitHub Actions
+
+3. **Debug locally**: Run the same sequence as CI/CD:
+   ```bash
+   minikube start
+   minikube addons enable ingress
+   kubectl wait --namespace ingress-nginx --for=condition=ready pod --selector=app.kubernetes.io/component=controller --timeout=180s
+   bash scripts/deploy_local.sh
+   pytest test_k8s/ -v
+   ```
+
+4. **Manual verification** in CI/CD or locally:
+   ```bash
+   # Check Minikube IP
+   minikube ip
+   
+   # Test with correct Host header (required for Ingress)
+   curl -H "Host: hello-flask.local" http://$(minikube ip)
+   
+   # Or use hostname if /etc/hosts is configured
+   curl http://hello-flask.local
+   
+   # Check ingress status
+   kubectl get ingress hello-flask-ingress
+   kubectl describe ingress hello-flask-ingress
+   ```
+
+For more detailed debugging steps, see [`docs/DEBUGGING_CI_CD.md`](docs/DEBUGGING_CI_CD.md).
 
 ## Deploying to AWS EKS (Production)
 
@@ -322,12 +407,12 @@ All scripts run within the cloud environment, remember before running the script
 Each script can be run individually:
 ```
 bash scripts/build_image.sh         # Build image
-bash scripts/deploy_local.sh        # Deploy app
+bash scripts/deploy_local.sh        # Deploy app with Ingress
 bash scripts/unit_tests.sh          # Run app unit tests
 bash scripts/k8s_tests.sh           # Run K8s-level tests
 bash scripts/smoke_test.sh          # Run all tests
 bash scripts/port_forward.sh        # Forward service to localhost
-bash scripts/minikube_service_url.sh # Get service URL
+bash scripts/minikube_service_url.sh # Get service URL (works with both NodePort and Ingress)
 bash scripts/delete_local.sh        # Cleanup
 ```
 ## Convenience Shortcuts (Makefile)
@@ -340,7 +425,7 @@ make unit-tests - Run unit tests
 make k8s-tests - Run k8s integration tests
 make smoke-test - Run smoke tests
 make port-forward - Forward service port to localhost
-make minikube-url - Get minikube service URL
+make minikube-url - Get service URL and access methods
 ```
 Composite Targets:
 ```

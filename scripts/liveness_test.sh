@@ -1,33 +1,31 @@
 #!/bin/bash
 set -e
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
 
-print_header() {
-    echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}  Liveness Probe Configuration Tests${NC}"
-    echo -e "${BLUE}================================================${NC}"
-}
-
+# Function definitions
 run_automated_tests() {
-    echo -e "\n${GREEN}[INFO] Running automated liveness probe configuration tests...${NC}"
-    echo -e "${YELLOW}(Behavioral tests available in test_crash_recovery_manual.py)${NC}\n"
-    pytest test_k8s/test_liveness_probe.py -v -s
+    echo ""
+    log_info "Running automated liveness probe configuration tests..."
+    log_note "(Behavioral tests available in test_crash_recovery_manual.py)"
+    echo ""
+    run_pytest "test_k8s/test_liveness_probe.py" "-v -s"
 }
 
 run_manual_tests() {
-    echo -e "\n${GREEN}[INFO] Running manual self-healing tests...${NC}"
-    echo -e "${YELLOW}(These tests involve timing and may take 60-90 seconds)${NC}\n"
-    pytest test_k8s/ -v -s -m manual
+    echo ""
+    log_info "Running manual self-healing tests..."
+    log_note "(These tests involve timing and may take 60-90 seconds)"
+    echo ""
+    run_pytest "test_k8s/" "-v -s -m manual"
 }
 
 run_config_only() {
-    echo -e "\n${GREEN}[INFO] Running liveness probe configuration check only...${NC}\n"
-    pytest test_k8s/test_liveness_probe.py::test_liveness_probe_configured -v -s
+    echo ""
+    log_info "Running liveness probe configuration check only..."
+    echo ""
+    run_pytest "test_k8s/test_liveness_probe.py::test_liveness_probe_configured" "-v -s"
 }
 
 show_help() {
@@ -45,8 +43,8 @@ show_help() {
     echo "  bash scripts/liveness_test.sh --config  # Configuration check only"
 }
 
-# Main script logic
-print_header
+# Main execution
+print_header "Liveness Probe Configuration Tests"
 
 case "${1:-}" in
     --manual)
@@ -62,10 +60,11 @@ case "${1:-}" in
         run_automated_tests
         ;;
     *)
-        echo -e "${YELLOW}[WARNING] Unknown option: $1${NC}"
+        log_warning "Unknown option: $1"
         show_help
         exit 1
         ;;
 esac
 
-echo -e "\n${GREEN}✅ Tests completed!${NC}\n"
+log_success "Tests completed!"
+echo ""

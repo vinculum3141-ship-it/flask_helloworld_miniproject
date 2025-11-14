@@ -502,6 +502,37 @@ Clean Up:
 make delete - Delete local deployment
 ```
 
+## Scripts Architecture
 
-# Change logs
-* Add Ingress for more production ready code, added extensive and verbose debug logs for reference
+All bash scripts in the `scripts/` directory use a **shared utilities library** for consistent output and easier maintenance.
+
+### Shared Library (`scripts/lib/common.sh`)
+
+The common library provides:
+- **Color definitions**: GREEN, BLUE, YELLOW, RED, NC (No Color)
+- **Logging functions**: `log_info()`, `log_success()`, `log_warning()`, `log_error()`, `log_note()`
+- **Header formatting**: `print_header()` for consistent script headers
+- **Pytest helpers**: `run_pytest()` for standardized test execution
+- **Validation helpers**: `command_exists()`, `check_git_repo()`
+- **Path helpers**: `get_scripts_dir()`, `get_project_root()`
+
+### Benefits
+
+✅ **Single source of truth** - Colors and formatting defined once  
+✅ **Consistent output** - All scripts use the same style  
+✅ **Easier maintenance** - Update logging in one place, applies everywhere  
+✅ **Better error handling** - Standardized error messages and exit codes  
+✅ **Code reuse** - Common patterns extracted into reusable functions  
+
+### Usage in Scripts
+
+All scripts source the common library:
+```bash
+#!/bin/bash
+source "$(dirname "$0")/lib/common.sh"
+
+print_header "My Script Title"
+log_info "Processing started..."
+run_pytest "test_k8s/" "-v"
+log_success "All done!"
+```

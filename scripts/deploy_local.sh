@@ -1,24 +1,14 @@
 #!/bin/bash
 set -euo pipefail
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
 
 LOG_DIR="${PWD}/logs"
 mkdir -p "${LOG_DIR}"
 
-print_header() {
-    echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}  Deploying to Minikube${NC}"
-    echo -e "${BLUE}================================================${NC}"
-}
-
 collect_diagnostics() {
-  echo -e "\n${RED}=== COLLECTING DIAGNOSTICS ===${NC}"
+  log_error "=== COLLECTING DIAGNOSTICS ==="
   echo "Timestamp: $(date -u +'%Y-%m-%dT%H:%M:%SZ')" | tee "${LOG_DIR}/diag.txt"
 
   echo -e "\n--- kubectl cluster-info ---" | tee -a "${LOG_DIR}/diag.txt"
@@ -59,34 +49,36 @@ collect_diagnostics() {
   echo -e "\n--- docker images (current DOCKER env) ---" | tee -a "${LOG_DIR}/diag.txt"
   docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' 2>&1 | tee -a "${LOG_DIR}/diag.txt" || true
 
-  echo -e "${YELLOW}Diagnostics collected in ${LOG_DIR}/diag.txt${NC}"
+  log_note "Diagnostics collected in ${LOG_DIR}/diag.txt"
 }
 
-trap 'rc=$?; echo -e "${RED}ERROR: deploy_local.sh failed with exit ${rc}${NC}"; collect_diagnostics; exit ${rc}' ERR
+trap 'rc=$?; log_error "deploy_local.sh failed with exit ${rc}"; collect_diagnostics; exit ${rc}' ERR
 
 deploy_app() {
-    echo -e "\n${GREEN}[INFO] Applying ConfigMap...${NC}"
+    echo ""
+    log_info "Applying ConfigMap..."
     minikube kubectl -- apply -f k8s/configmap.yaml
 
-    echo -e "${GREEN}[INFO] Applying Secret...${NC}"
+    log_info "Applying Secret..."
     minikube kubectl -- apply -f k8s/secret.yaml
 
-    echo -e "${GREEN}[INFO] Deploying Deployment & Service...${NC}"
+    log_info "Deploying Deployment & Service..."
     minikube kubectl -- apply -f k8s/deployment.yaml
     minikube kubectl -- apply -f k8s/service.yaml
 
-    echo -e "${GREEN}[INFO] Deploying Ingress...${NC}"
+    log_info "Deploying Ingress..."
     minikube kubectl -- apply -f k8s/ingress.yaml
 
-    echo -e "${GREEN}[INFO] Waiting for deployment rollout (timeout 5m)...${NC}"
+    log_info "Waiting for deployment rollout (timeout 5m)..."
     # add a timeout so this step doesn't hang indefinitely
     minikube kubectl -- rollout status deployment/hello-flask --timeout=5m
 
-    echo -e "${GREEN}[INFO] App deployed successfully.${NC}"
+    log_info "App deployed successfully."
 }
 
-# Run
-print_header
+# Main execution
+print_header "Deploying to Minikube"
 deploy_app
-echo -e "\n${GREEN}✅ Deployment completed!${NC}"
-echo -e "${YELLOW}Run 'kubectl get pods' to check pod status${NC}\n"
+log_success "Deployment completed!"
+log_note "Run 'kubectl get pods' to check pod status"
+echo ""

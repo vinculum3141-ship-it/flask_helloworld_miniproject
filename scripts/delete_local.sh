@@ -1,39 +1,33 @@
 #!/bin/bash
 set -euo pipefail
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
 
-print_header() {
-    echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}  Cleaning Up Deployment${NC}"
-    echo -e "${BLUE}================================================${NC}"
-}
-
+# Cleanup function
 cleanup_app() {
-    echo -e "\n${GREEN}[INFO] Deleting Ingress...${NC}"
+    echo ""
+    log_info "Deleting Ingress..."
     minikube kubectl -- delete -f k8s/ingress.yaml --ignore-not-found
     
-    echo -e "${GREEN}[INFO] Deleting Service...${NC}"
+    log_info "Deleting Service..."
     minikube kubectl -- delete -f k8s/service.yaml --ignore-not-found
     
-    echo -e "${GREEN}[INFO] Deleting Deployment...${NC}"
+    log_info "Deleting Deployment..."
     minikube kubectl -- delete -f k8s/deployment.yaml --ignore-not-found
     
-    echo -e "${GREEN}[INFO] Deleting ConfigMap...${NC}"
+    log_info "Deleting ConfigMap..."
     minikube kubectl -- delete -f k8s/configmap.yaml --ignore-not-found
     
-    echo -e "${GREEN}[INFO] Deleting Secret...${NC}"
+    log_info "Deleting Secret..."
     minikube kubectl -- delete -f k8s/secret.yaml --ignore-not-found
 
-    echo -e "${GREEN}[INFO] Cleanup complete.${NC}"
+    log_info "Cleanup complete."
 }
 
-# Run
-print_header
+# Main execution
+print_header "Cleaning Up Deployment"
 cleanup_app
-echo -e "\n${GREEN}✅ All resources deleted!${NC}"
-echo -e "${YELLOW}Minikube cluster is still running. Use 'minikube stop' to shut it down.${NC}\n"
+log_success "All resources deleted!"
+log_note "Minikube cluster is still running. Use 'minikube stop' to shut it down."
+echo ""

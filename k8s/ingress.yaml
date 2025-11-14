@@ -6,12 +6,6 @@
 #   - Access via: http://hello-flask.local
 #   - Requires: minikube addons enable ingress
 #   - Add to /etc/hosts: $(minikube ip) hello-flask.local
-#
-# For AWS EKS (production):
-#   - Uses AWS Load Balancer Controller
-#   - Creates an Application Load Balancer (ALB)
-#   - Provides SSL/TLS termination
-#   - Integrates with AWS Certificate Manager (ACM)
 
 ---
 # Ingress configuration for Minikube (nginx-ingress)
@@ -22,27 +16,10 @@ metadata:
   annotations:
     # For nginx ingress controller (Minikube)
     nginx.ingress.kubernetes.io/rewrite-target: /
-    
-    # Uncomment below for EKS with AWS Load Balancer Controller
-    # alb.ingress.kubernetes.io/scheme: internet-facing
-    # alb.ingress.kubernetes.io/target-type: ip
-    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    # alb.ingress.kubernetes.io/ssl-redirect: '443'
-    
-    # Optional: Add SSL certificate ARN for HTTPS on EKS
-    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account-id:certificate/certificate-id
-    
-    # Optional: Health check settings
-    # alb.ingress.kubernetes.io/healthcheck-path: /
-    # alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
-    # alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
-    # alb.ingress.kubernetes.io/success-codes: '200'
-    # alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-    # alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
 spec:
   ingressClassName: nginx  # Modern way to specify ingress class (replaces deprecated annotation)
   rules:
-  - host: hello-flask.local  # Change this to your domain for EKS
+  - host: hello-flask.local
     http:
       paths:
       - path: /
@@ -52,39 +29,3 @@ spec:
             name: hello-flask
             port:
               number: 5000
-  
-  # Optional: Add TLS configuration for HTTPS
-  # tls:
-  # - hosts:
-  #   - hello-flask.local
-  #   secretName: hello-flask-tls  # Kubernetes secret containing TLS certificate
-
----
-# Alternative Ingress configuration for EKS (AWS Load Balancer Controller)
-# To use this instead, comment out the above Ingress and uncomment this section
-#
-# apiVersion: networking.k8s.io/v1
-# kind: Ingress
-# metadata:
-#   name: hello-flask-ingress
-#   annotations:
-#     alb.ingress.kubernetes.io/scheme: internet-facing
-#     alb.ingress.kubernetes.io/target-type: ip
-#     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
-#     # For HTTPS, uncomment and add your ACM certificate ARN:
-#     # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-#     # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:us-east-1:123456789012:certificate/your-cert-id
-#     # alb.ingress.kubernetes.io/ssl-redirect: '443'
-# spec:
-#   ingressClassName: alb  # For AWS Load Balancer Controller
-#   rules:
-#   - host: your-domain.example.com
-#     http:
-#       paths:
-#       - path: /
-#         pathType: Prefix
-#         backend:
-#           service:
-#             name: hello-flask
-#             port:
-#               number: 5000

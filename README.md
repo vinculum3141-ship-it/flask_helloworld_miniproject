@@ -272,7 +272,11 @@ pytest test_k8s/ -v
   - 🔧 For manual testing only (not part of automated suite)
   - Tests ReplicaSet self-healing when pod is deleted (timing-dependent)
   - Tests container restart when PID 1 is killed (timing-dependent)
-  - Run with: `pytest test_k8s/ -m manual -v -s`
+  - **Run all manual tests:** `pytest test_k8s/ -m manual -v -s`
+  - **Run individual tests:**
+    - Pod deletion test: `pytest test_k8s/test_crash_recovery_manual.py::test_self_healing_pod_deletion -v -s -m ""`
+    - Crash recovery test: `pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -v -s -m ""`
+  - **Note:** Use `-m ""` to override the default marker filter when running individual tests
   - **Note:** These tests involve wait times and race conditions - manual verification recommended
 
 * **`test_service_access.py`** → Verifies service endpoint responds

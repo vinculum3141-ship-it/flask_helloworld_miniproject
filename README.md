@@ -441,3 +441,7 @@ Clean Up:
 ```
 make delete - Delete local deployment
 ```
+
+
+# Change logs
+* Add Ingress for more production ready code, added extensive and verbose debug logs for reference

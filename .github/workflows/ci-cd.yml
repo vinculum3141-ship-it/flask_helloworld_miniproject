@@ -16,7 +16,7 @@
 # - Ingress-specific tests (skipped if Ingress not deployed)
 # - Smoke tests and security scanning
 # ---------------------------------------------------------------------------------
-name: Flask CI/CD Pipeline (nested reference – not executed)
+name: Flask CI/CD Pipeline
 
 # Pipeline Triggers - defines when this workflow will run
 on:

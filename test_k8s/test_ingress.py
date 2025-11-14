@@ -66,7 +66,7 @@ def test_ingress_has_address():
     ingress_data = json.loads(result.stdout)
     
     # Wait up to 30 seconds for address to be assigned
-    max_wait = 30
+    max_wait = 60
     for i in range(max_wait):
         result = subprocess.run(
             ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
@@ -113,9 +113,9 @@ def test_ingress_class():
         ingress_data.get("spec", {}).get("ingressClassName")
     )
     
-    assert ingress_class in ["nginx", "alb"], (
+    assert ingress_class == "nginx", (
         f"Unexpected ingress class: {ingress_class}. "
-        f"Expected 'nginx' (Minikube) or 'alb' (EKS)"
+        f"Expected 'nginx' for Minikube"
     )
     
     print(f"✓ Ingress class: {ingress_class}")

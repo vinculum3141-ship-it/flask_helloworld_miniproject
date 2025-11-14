@@ -215,6 +215,28 @@ jobs:
           echo "Ingress status:"
           kubectl get ingress hello-flask-ingress
           kubectl describe ingress hello-flask-ingress
+      
+      # --- Step 8.5: Debug deployment state ---
+      - name: Debug deployment state
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          echo "=== Minikube IP ==="
+          minikube ip
+          
+          echo "=== All Services ==="
+          kubectl get svc -A
+          
+          echo "=== All Ingresses ==="
+          kubectl get ingress -A
+          
+          echo "=== Pod Status ==="
+          kubectl get pods -l app=hello-flask -o wide
+          
+          echo "=== Service Details ==="
+          kubectl describe svc hello-flask
+          
+          echo "=== Ingress Nginx Logs (last 20 lines) ==="
+          kubectl logs -n ingress-nginx -l app.kubernetes.io/component=controller --tail=20 || echo "Could not fetch ingress logs"
           
       # --- Step 9: Run Unit Tests ---
       - name: Run unit tests

@@ -1,4 +1,6 @@
-blah blah why move to EKS
+# Flask Hello World - Minikube Deployment
+
+This project demonstrates deploying a Flask application to a local Kubernetes cluster using Minikube, with comprehensive testing and CI/CD automation.
 
 Note:     
 Use a python virtual environment for development and testing.
@@ -142,6 +144,98 @@ To generate encoded values:
 echo -n "somesecretkey" | base64
 ```
 
+## Test Liveness Probe (Self-Healing)
+
+The deployment includes a liveness probe that monitors the health of each pod. If a pod becomes unhealthy or crashes, Kubernetes automatically restarts the container. You can manually test this self-healing behavior:
+
+### Method 1: Delete a Pod (Recommended)
+Watch Kubernetes automatically recreate the deleted pod to maintain the desired replica count:
+
+```bash
+# Watch pods in real-time (in one terminal)
+kubectl get pods -w
+
+# In another terminal, delete one pod
+kubectl delete pod <pod-name>
+# Example: kubectl delete pod hello-flask-5d856bb855-b7jwp
+```
+
+**What you'll see:**
+- The deleted pod enters `Terminating` state
+- Kubernetes immediately creates a new pod to maintain 2 replicas
+- The new pod goes through: `ContainerCreating` → `Running`
+- Total time: typically 5-10 seconds
+
+### Method 2: Simulate App Crash
+Simulate an application crash by killing the Flask process inside the container:
+
+```bash
+# Get a pod name
+POD=$(kubectl get pods -l app=hello-flask -o jsonpath="{.items[0].metadata.name}")
+echo "Testing pod: $POD"
+
+# Watch the pod status in real-time
+kubectl get pod $POD -w &
+
+# Kill the main process (PID 1) inside the container
+# Note: Use 'bash -c' because the kill command is a bash builtin
+# Use -9 (SIGKILL) to force kill the process
+kubectl exec $POD -- bash -c "kill -9 1"
+```
+
+**What you'll see:**
+- The container immediately terminates
+- The liveness probe detects the app is not responding on port 5000
+- After 3 consecutive failed checks (with current settings: up to 55-65 seconds), Kubernetes restarts the container
+- Pod shows `RESTARTS` count incremented
+- The pod stays in `Running` state (container restart, not pod recreation)
+
+**Why does it take so long?**
+With the current liveness probe settings:
+- `periodSeconds: 10` - Checks every 10 seconds
+- `timeoutSeconds: 5` - Waits 5 seconds for response
+- `failureThreshold: 3` - Needs 3 consecutive failures
+
+Time calculation: Initial check (0-10s) + (timeout 5s + period 10s) × 3 failures = up to 55-65 seconds total
+
+**Alternative - More visible crash simulation:**
+To see a more gradual failure and recovery, you can crash Python instead:
+```bash
+kubectl exec $POD -- bash -c "pkill -9 python"
+# or
+kubectl exec $POD -- bash -c "python -c 'import os; os._exit(1)'"
+```
+
+### Verify Liveness Probe Configuration
+Check the liveness probe settings in your running pod:
+
+```bash
+kubectl describe pod <pod-name> | grep -A 10 "Liveness:"
+```
+
+**Expected output:**
+```
+Liveness:       http-get http://:5000/ delay=10s timeout=5s period=10s #success=1 #failure=3
+```
+
+This means:
+- **Initial delay:** 10 seconds after container starts
+- **Check interval:** Every 10 seconds
+- **Timeout:** 5 seconds per check
+- **Failure threshold:** Restart after 3 consecutive failures
+
+### Check Pod Events for Liveness Failures
+If you simulated a crash, you can see the liveness probe failures in the pod events:
+
+```bash
+kubectl describe pod <pod-name> | grep -A 20 "Events:"
+```
+
+Look for events like:
+- `Unhealthy`: Liveness probe failed
+- `Killing`: Container being killed
+- `Started`: Container restarted successfully
+
 ## Run Application-Level Unit Tests
 ```
 pytest app/tests/ -v
@@ -168,6 +262,19 @@ pytest test_k8s/ -v
 * **`test_configmap.py`** → Verifies ConfigMap environment variables
   - ✅ Works with both NodePort and Ingress
 
+* **`test_liveness_probe.py`** → Verifies Liveness Probe and Self-Healing Configuration
+  - ✅ Confirms liveness probe is configured correctly
+  - ✅ Confirms readiness probe is configured correctly
+  - ✅ Verifies multiple replicas are maintained
+  - **Note:** Only configuration tests - behavioral/timing tests moved to manual suite
+
+* **`test_crash_recovery_manual.py`** → Manual self-healing testing (optional)
+  - 🔧 For manual testing only (not part of automated suite)
+  - Tests ReplicaSet self-healing when pod is deleted (timing-dependent)
+  - Tests container restart when PID 1 is killed (timing-dependent)
+  - Run with: `pytest test_k8s/ -m manual -v -s`
+  - **Note:** These tests involve wait times and race conditions - manual verification recommended
+
 * **`test_service_access.py`** → Verifies service endpoint responds
   - ✅ **Auto-detects service type** (NodePort or ClusterIP)
   - For NodePort: Uses `minikube service hello-flask --url`
@@ -183,6 +290,12 @@ pytest test_k8s/ -v
 # Run all K8s tests
 pytest test_k8s/ -v
 
+# Run only liveness probe tests (automated suite)
+pytest test_k8s/test_liveness_probe.py -v
+
+# Run manual crash recovery tests (optional, timing-dependent)
+pytest test_k8s/ -m manual -v -s
+
 # Run only deployment tests
 pytest test_k8s/test_deployment.py -v
 
@@ -196,26 +309,38 @@ pytest test_k8s/test_ingress.py -v
 CI=true pytest test_k8s/test_service_access.py -v -s
 ```
 
+**Note about manual tests:**
+- Manual tests (pod deletion, crash recovery) are marked with `@pytest.mark.manual`
+- They are excluded from the default test run to avoid timing-related flakiness
+- Run them explicitly with: `pytest test_k8s/ -m manual -v -s`
+- These tests may take 60-90 seconds due to waiting for Kubernetes recovery
+```
+
 **Note:** Tests automatically detect the environment:
 - **Local**: Uses `http://hello-flask.local` (requires `/etc/hosts` configured)
 - **CI/CD**: Uses `http://<minikube-ip>` with `Host: hello-flask.local` header
 
 ## Run Smoke Tests (Optional Script)
-The `smoke_test.sh` script runs all K8s tests automatically:
-```
+The `smoke_test.sh` script runs all critical K8s tests automatically (excludes manual tests):
+```bash
 bash scripts/smoke_test.sh
 ```
 
 Output will show:
 * Deployment checks
 * Pod health
+* Liveness and readiness probe configuration
+* ConfigMap and Secret validation
 * Service accessibility
+* Ingress configuration (if deployed)
+
+**Note:** Smoke tests exclude manual tests (pod deletion, crash recovery) for fast feedback. To run manual tests, use `pytest test_k8s/ -m manual -v -s`.
 
 ## Access the App Locally
 
 ### With Ingress (Option B):
 If you deployed with Ingress:
-```
+```bash
 curl http://hello-flask.local
 # or open http://hello-flask.local in browser
 ```
@@ -223,19 +348,19 @@ curl http://hello-flask.local
 ### Without Ingress (Option A - NodePort):
 
 #### Method 1: Minikube service URL:
-```
+```bash
 minikube service hello-flask --url
 # Opens the service in browser or shows URL like http://192.168.49.2:32000
 ```
 
 #### Method 2: Port-forward:
-```
+```bash
 kubectl port-forward svc/hello-flask 5000:5000
 # Then open http://localhost:5000
 ```
 
 ## Clean Up Local Minikube Resources
-```
+```bash
 kubectl delete -f k8s/ingress.yaml     # if using Ingress
 kubectl delete -f k8s/service.yaml
 kubectl delete -f k8s/deployment.yaml
@@ -322,84 +447,9 @@ If `test_service_reachable` fails in GitHub Actions:
 
 For more detailed debugging steps, see [`docs/DEBUGGING_CI_CD.md`](docs/DEBUGGING_CI_CD.md).
 
-## Deploying to AWS EKS (Production)
-
-When deploying to EKS, the Ingress setup is different:
-
-### Prerequisites for EKS
-1. **AWS Load Balancer Controller** installed in your EKS cluster
-2. **IAM permissions** for the controller to create ALBs
-3. **DNS configuration** (Route53 or similar)
-4. **SSL certificate** in AWS Certificate Manager (optional, for HTTPS)
-
-### EKS Deployment Steps
-
-1. **Install AWS Load Balancer Controller** (one-time setup):
-```bash
-# Follow AWS documentation to install the controller
-# https://docs.aws.amazon.com/eks/latest/userguide/aws-load-balancer-controller.html
-```
-
-2. **Update Ingress for EKS**:
-Edit `k8s/ingress.yaml` and uncomment the EKS section (or create a separate file):
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: hello-flask-ingress
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
-    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/id
-    alb.ingress.kubernetes.io/ssl-redirect: '443'
-spec:
-  rules:
-  - host: your-domain.example.com
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: hello-flask
-            port:
-              number: 5000
-```
-
-3. **Deploy to EKS**:
-```bash
-kubectl apply -f k8s/configmap.yaml
-kubectl apply -f k8s/secret.yaml
-kubectl apply -f k8s/deployment.yaml
-kubectl apply -f k8s/service.yaml
-kubectl apply -f k8s/ingress.yaml
-```
-
-4. **Get ALB DNS name**:
-```bash
-kubectl get ingress hello-flask-ingress
-# Shows ADDRESS with ALB DNS name
-```
-
-5. **Configure DNS**: Point your domain to the ALB DNS using a CNAME record in Route53.
-
-### Key Differences: Minikube vs EKS
-
-| Feature | Minikube (Local) | EKS (Production) |
-|---------|------------------|------------------|
-| Ingress Controller | nginx | AWS Load Balancer Controller |
-| Load Balancer | None (uses minikube IP) | Application Load Balancer (ALB) |
-| DNS | /etc/hosts entry | Route53 or external DNS |
-| SSL/TLS | Manual cert or none | AWS Certificate Manager |
-| Cost | Free | Pay for ALB + data transfer |
-| Access | http://hello-flask.local | https://your-domain.com |
-
-
 # Automation scripts
 Break the workflow into modular Bash scripts, each with a targeted function, so you can run only what you need.
-This is a good structure fpr automation: clean, reusable, and easy to integrate into pipelines.
+This is a good structure for automation: clean, reusable, and easy to integrate into pipelines.
 
 All scripts run within the cloud environment, remember before running the scripts to initiate the local cloud (`minikube start`), as well as release all resources when done development and testing (`minikube stop`).
 
@@ -410,7 +460,10 @@ bash scripts/build_image.sh         # Build image
 bash scripts/deploy_local.sh        # Deploy app with Ingress
 bash scripts/unit_tests.sh          # Run app unit tests
 bash scripts/k8s_tests.sh           # Run K8s-level tests
-bash scripts/smoke_test.sh          # Run all tests
+bash scripts/liveness_test.sh       # Run automated liveness probe configuration tests
+bash scripts/liveness_test.sh --manual # Run manual behavioral tests (pod deletion, crash recovery)
+bash scripts/liveness_test.sh --config # Run only configuration check
+bash scripts/smoke_test.sh          # Run all automated tests (fast)
 bash scripts/port_forward.sh        # Forward service to localhost
 bash scripts/minikube_service_url.sh # Get service URL (works with both NodePort and Ingress)
 bash scripts/delete_local.sh        # Cleanup
@@ -423,6 +476,9 @@ make build - Build Docker image
 make deploy - Deploy to local cluster
 make unit-tests - Run unit tests
 make k8s-tests - Run k8s integration tests
+make liveness-test - Run automated liveness probe configuration tests
+make liveness-test-manual - Run manual behavioral tests (pod deletion, crash recovery)
+make liveness-test-config - Run only liveness probe configuration check
 make smoke-test - Run smoke tests
 make port-forward - Forward service port to localhost
 make minikube-url - Get service URL and access methods

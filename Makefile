@@ -11,6 +11,15 @@ delete:
 k8s-tests:
 	@bash scripts/k8s_tests.sh
 
+liveness-test:
+	@bash scripts/liveness_test.sh
+
+liveness-test-manual:
+	@bash scripts/liveness_test.sh --manual
+
+liveness-test-config:
+	@bash scripts/liveness_test.sh --config
+
 minikube-url:
 	@bash scripts/minikube_service_url.sh
 
@@ -74,6 +83,9 @@ help:
 	@echo "  test          - Run k8s tests"
 	@echo "  unit-tests    - Run unit tests"
 	@echo "  k8s-tests     - Run k8s integration tests"
+	@echo "  liveness-test        - Run automated liveness probe configuration tests"
+	@echo "  liveness-test-manual - Run manual behavioral tests (pod deletion, crash recovery)"
+	@echo "  liveness-test-config - Run only liveness probe configuration check"
 	@echo "  test-all      - Run all tests"
 	@echo "  smoke-test    - Run smoke tests"
 	@echo "  port-forward  - Forward service port to localhost"

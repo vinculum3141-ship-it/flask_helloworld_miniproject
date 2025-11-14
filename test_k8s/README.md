@@ -1,0 +1,466 @@
+# Test Refactoring Documentation
+
+## Overview
+
+The `test_k8s` directory has been refactored to improve maintainability, debuggability, and organization of Kubernetes integration tests.
+
+## Test Files Reference
+
+This section explains what each test file does and when to run it.
+
+### Core Infrastructure Tests
+
+#### `test_deployment.py` - Pod Status Verification
+**Purpose:** Verifies that Kubernetes Deployment creates and maintains healthy pods.
+
+**What it tests:**
+- ✅ Pods exist with the correct label (`app=hello-flask`)
+- ✅ All pods are in `Running` state
+- ✅ Expected number of replicas are running (default: 3)
+- ✅ Pod status validation
+
+**Markers:** None (runs automatically)
+
+**When to run:** Always - this is a fundamental health check
+
+**Example:**
+```bash
+pytest test_k8s/test_deployment.py -v
+```
+
+---
+
+#### `test_configmap.py` - ConfigMap Environment Variables
+**Purpose:** Verifies that environment variables from ConfigMap are correctly injected into pods.
+
+**What it tests:**
+- ✅ ConfigMap exists (`hello-flask-config`)
+- ✅ Environment variables are accessible inside pods
+- ✅ Variables have correct values (`APP_ENV=production`, `LOG_LEVEL=info`)
+
+**Markers:** None (runs automatically)
+
+**When to run:** After deploying ConfigMap, to verify configuration injection
+
+**Example:**
+```bash
+pytest test_k8s/test_configmap.py -v
+```
+
+---
+
+### Service Access Tests
+
+#### `test_service_nodeport.py` - NodePort Service Access
+**Purpose:** Verifies NodePort service accessibility and configuration.
+
+**What it tests:**
+- ✅ Service type is `NodePort`
+- ✅ Service has a NodePort assigned in valid range (30000-32767)
+- ✅ Service is reachable via `minikube service` URL
+- ✅ HTTP endpoint returns expected response
+- ✅ Service points to correct pods
+
+**Markers:** `@pytest.mark.nodeport`
+
+**When to run:** When using NodePort service type (simpler local testing)
+
+**Example:**
+```bash
+pytest test_k8s/test_service_nodeport.py -v
+# Or run all NodePort tests
+pytest test_k8s/ -v -m nodeport
+```
+
+**Note:** This test only runs when service type is `NodePort` (skips for ClusterIP)
+
+---
+
+#### `test_service_ingress.py` - Ingress Service Access
+**Purpose:** Verifies Ingress-based service accessibility with proper routing.
+
+**What it tests:**
+- ✅ Service type is `ClusterIP` (used with Ingress)
+- ✅ Ingress route is reachable via host header (`hello-flask.local`)
+- ✅ HTTP endpoint returns expected response
+- ✅ Ingress correctly routes to backend service
+- ✅ Environment-aware testing (local vs CI/CD)
+
+**Markers:** `@pytest.mark.ingress`
+
+**When to run:** When using Ingress controller (production-like setup)
+
+**Example:**
+```bash
+pytest test_k8s/test_service_ingress.py -v
+# Or run all Ingress tests
+pytest test_k8s/ -v -m ingress
+
+# Simulate CI/CD environment (uses Minikube IP + Host header)
+CI=true pytest test_k8s/test_service_ingress.py -v -s
+```
+
+**Environment detection:**
+- **Local:** Uses `http://hello-flask.local` (requires `/etc/hosts` configured)
+- **CI/CD:** Uses `http://<minikube-ip>` with `Host: hello-flask.local` header
+
+**Tip:** Use `CI=true` to test the CI/CD behavior locally without modifying `/etc/hosts`
+
+---
+
+#### `test_ingress.py` - Ingress Resource Configuration
+**Purpose:** Verifies Ingress resource is properly configured with correct rules.
+
+**What it tests:**
+- ✅ Ingress resource exists (`hello-flask-ingress`)
+- ✅ Ingress has correct host configured (`hello-flask.local`)
+- ✅ Ingress has correct path rules (`/` routes to `hello-flask` service)
+- ✅ Ingress backend service is correct (port 5000)
+- ✅ Ingress has an address assigned (load balancer IP)
+
+**Markers:** `@pytest.mark.ingress`
+
+**When to run:** When using Ingress controller, to verify routing configuration
+
+**Example:**
+```bash
+pytest test_k8s/test_ingress.py -v
+```
+
+**Note:** This test skips if Ingress is not deployed
+
+---
+
+### Health & Self-Healing Tests
+
+#### `test_liveness_probe.py` - Probe Configuration
+**Purpose:** Verifies that liveness and readiness probes are correctly configured.
+
+**What it tests:**
+- ✅ Liveness probe is configured on containers
+- ✅ Liveness probe uses correct endpoint (`/`)
+- ✅ Liveness probe has correct port (5000)
+- ✅ Readiness probe is configured on containers
+- ✅ Readiness probe uses correct endpoint (`/`)
+- ✅ Readiness probe has correct port (5000)
+
+**Markers:** None (runs automatically)
+
+**When to run:** Always - ensures self-healing configuration is correct
+
+**Example:**
+```bash
+pytest test_k8s/test_liveness_probe.py -v
+```
+
+**Note:** This only tests probe **configuration**, not behavioral aspects (see manual tests below)
+
+---
+
+#### `test_crash_recovery_manual.py` - Self-Healing Behavior (Manual)
+**Purpose:** Verifies Kubernetes self-healing mechanisms through destructive testing.
+
+**What it tests:**
+- 🧪 **Pod Deletion Test** (`test_self_healing_pod_deletion`)
+  - Deletes a pod
+  - Verifies ReplicaSet creates a replacement pod
+  - Confirms desired replica count is restored
+  - Validates new pod becomes Running and Ready
+
+- 🧪 **Container Crash Test** (`test_container_restart_on_crash`)
+  - Kills the main process (PID 1) inside a container
+  - Verifies liveness probe detects the failure
+  - Confirms container is automatically restarted
+  - Validates restart count increments
+
+**Markers:** `@pytest.mark.manual`, `@pytest.mark.slow`
+
+**When to run:** Manually, for thorough validation (not in automated CI/CD)
+
+**Why manual?**
+- ⏱️ Tests involve wait times (60-90 seconds)
+- 🎲 Timing-dependent (Kubernetes reconciliation loops)
+- 💥 Destructive (deletes pods, kills processes)
+- 🔍 Best verified with manual observation
+
+**Examples:**
+```bash
+# Run all manual tests
+pytest test_k8s/ -m manual -v -s
+
+# Run only pod deletion test
+pytest test_k8s/test_crash_recovery_manual.py::test_self_healing_pod_deletion -v -s -m ""
+
+# Run only crash recovery test
+pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -v -s -m ""
+```
+
+**Note:** Use `-s` flag to see real-time output during waits
+
+---
+
+## Test Summary Table
+
+| Test File | Purpose | Markers | Auto/Manual | Duration |
+|-----------|---------|---------|-------------|----------|
+| `test_deployment.py` | Pod status verification | - | Auto | Fast (~2s) |
+| `test_configmap.py` | ConfigMap environment vars | - | Auto | Fast (~3s) |
+| `test_service_nodeport.py` | NodePort service access | `nodeport` | Auto | Medium (~5s) |
+| `test_service_ingress.py` | Ingress service access | `ingress` | Auto | Medium (~5s) |
+| `test_ingress.py` | Ingress resource config | `ingress` | Auto | Fast (~2s) |
+| `test_liveness_probe.py` | Probe configuration | - | Auto | Fast (~2s) |
+| `test_crash_recovery_manual.py` | Self-healing behavior | `manual`, `slow` | Manual | Slow (~60-90s) |
+
+**Total automated test time:** ~15-20 seconds  
+**Total manual test time:** ~60-90 seconds
+
+---
+
+## Key Improvements
+
+### 1. Shared Utilities Module (`utils.py`)
+
+**Purpose**: Centralize common helper functions to eliminate code duplication.
+
+**Key Functions**:
+- `run_kubectl()` - Execute kubectl commands with consistent error handling
+- `get_pods()` - Retrieve pods by label selector
+- `get_pod_restart_count()` - Get restart count for a pod
+- `get_running_pods()` - Get only running and ready pods
+- `wait_for_pods_ready()` - Wait for specific number of pods to be ready
+- `get_deployment()`, `get_service()`, `get_ingress()` - Resource retrieval
+- `exec_in_pod()` - Execute commands inside pods
+- `delete_pod()` - Delete a pod
+- `print_debug_info()` - Print comprehensive debugging information
+- `is_ci_environment()` - Detect CI/CD environment
+- `get_minikube_ip()`, `get_service_url()` - Minikube utilities
+
+**Benefits**:
+- Single source of truth for kubectl operations
+- Consistent error handling across all tests
+- Better type hints and documentation
+- Easier to maintain and extend
+
+### 2. Pytest Configuration (`conftest.py`)
+
+**Purpose**: Provide reusable fixtures and test configuration.
+
+**Key Fixtures**:
+- `deployment`, `service`, `ingress` - Auto-retrieve Kubernetes resources
+- `pods`, `running_pods` - Get current pod state
+- `ci_environment` - Detect CI/CD environment
+- `k8s_timeouts` - Environment-appropriate timeouts
+- `debug_on_failure` - Automatic debug output on test failure
+- `wait_for_stable_state` - Helper for waiting for pod stability
+
+**Custom Markers**:
+- `@pytest.mark.manual` - Tests that should only be run manually
+- `@pytest.mark.slow` - Tests that take longer than usual
+- `@pytest.mark.ingress` - Tests requiring Ingress controller
+- `@pytest.mark.nodeport` - Tests requiring NodePort service type
+
+**Benefits**:
+- Reduced boilerplate in test functions
+- Automatic resource retrieval with skipping if not found
+- Better timeout management for CI vs local environments
+- Organized test categorization with markers
+
+### 3. Test File Organization
+
+#### Original Structure
+```
+test_k8s/
+├── test_configmap.py
+├── test_deployment.py
+├── test_ingress.py
+├── test_liveness_probe.py
+├── test_crash_recovery_manual.py
+└── test_service_access.py  (mixed concerns)
+```
+
+#### New Structure
+```
+test_k8s/
+├── utils.py                      # NEW: Shared utilities
+├── conftest.py                   # NEW: Pytest configuration
+├── test_configmap.py             # REFACTORED: Uses utils
+├── test_deployment.py            # REFACTORED: Uses utils
+├── test_ingress.py               # REFACTORED: Uses utils & fixtures
+├── test_liveness_probe.py        # REFACTORED: Uses utils & fixtures
+├── test_crash_recovery_manual.py # REFACTORED: Uses utils & fixtures
+├── test_service_nodeport.py      # NEW: Split from test_service_access
+└── test_service_ingress.py       # NEW: Split from test_service_access
+```
+
+### 4. Specific Improvements by File
+
+#### `test_liveness_probe.py`
+- **Before**: Local functions for kubectl, duplicated code
+- **After**: Uses shared utilities and deployment fixture
+- **Benefits**: Cleaner, more focused test functions
+
+#### `test_crash_recovery_manual.py`
+- **Before**: Duplicate kubectl wrappers, hardcoded timeouts
+- **After**: Uses shared utilities, `k8s_timeouts` fixture, better debugging
+- **Benefits**: Adapts to CI/CD environment, better error messages
+
+#### `test_service_access.py` → Split into Two Files
+- **`test_service_nodeport.py`**: 
+  - Tests specific to NodePort service type
+  - Clearer focus on NodePort-specific functionality
+  - Uses `@pytest.mark.nodeport` marker
+
+- **`test_service_ingress.py`**:
+  - Tests specific to Ingress-based access
+  - Clearer focus on Ingress functionality
+  - Uses `@pytest.mark.ingress` marker
+
+- **Benefits**: 
+  - Better separation of concerns
+  - Easier to run subset of tests
+  - Clearer test intent
+
+#### `test_configmap.py`
+- **Before**: Used shell subprocess with minikube kubectl
+- **After**: Uses `exec_in_pod()` utility and `pods` fixture
+- **Benefits**: More robust, better error handling
+
+#### `test_deployment.py`
+- **Before**: Subprocess calls with JSON parsing
+- **After**: Uses `pods` fixture
+- **Benefits**: Simplified, leverages fixture auto-skipping
+
+#### `test_ingress.py`
+- **Before**: Repeated subprocess calls, hardcoded timeouts
+- **After**: Uses `ingress` fixture, `k8s_timeouts`, utilities
+- **Benefits**: Environment-aware timeouts, cleaner code
+
+## Usage Examples
+
+### Running Tests with Markers
+
+```bash
+# Run all tests
+pytest test_k8s/ -v
+
+# Run only Ingress tests
+pytest test_k8s/ -v -m ingress
+
+# Run only NodePort tests
+pytest test_k8s/ -v -m nodeport
+
+# Skip manual tests (default in CI)
+pytest test_k8s/ -v -m "not manual"
+
+# Run manual tests explicitly
+pytest test_k8s/ -v -m manual
+
+# Run specific test file
+pytest test_k8s/test_liveness_probe.py -v
+```
+
+### Using Utilities in New Tests
+
+```python
+from .utils import get_pods, wait_for_pods_ready, print_debug_info
+
+def test_my_feature(pods, k8s_timeouts):
+    """Example test using utilities and fixtures."""
+    # pods fixture auto-retrieves pods
+    initial_count = len(pods)
+    
+    # Make some changes...
+    
+    # Wait for stability with environment-appropriate timeout
+    timeout = k8s_timeouts['pod_ready']
+    success = wait_for_pods_ready(initial_count, timeout=timeout)
+    
+    if not success:
+        # Print debug info on failure
+        print_debug_info()
+    
+    assert success, "Pods did not become ready in time"
+```
+
+### Using Fixtures
+
+```python
+def test_deployment_replicas(deployment, running_pods):
+    """Example using deployment and running_pods fixtures."""
+    desired = deployment['spec']['replicas']
+    actual = len(running_pods)
+    
+    assert actual == desired, \
+        f"Expected {desired} running pods, got {actual}"
+```
+
+## Migration Guide
+
+If you're updating an existing test:
+
+1. **Remove local helper functions** that duplicate `utils.py` functionality
+2. **Add fixture parameters** to test functions (e.g., `deployment`, `pods`)
+3. **Replace subprocess calls** with utility functions
+4. **Use `k8s_timeouts`** instead of hardcoded timeout values
+5. **Add appropriate markers** (`@pytest.mark.ingress`, etc.)
+6. **Import from utils**: `from .utils import function_name`
+
+## Debugging
+
+### Enable Debug Output on Failure
+
+Add `debug_on_failure` to your test:
+
+```python
+def test_something(debug_on_failure):
+    # Test code...
+    pass
+```
+
+Or enable for entire module:
+```python
+pytestmark = pytest.mark.usefixtures("debug_on_failure")
+```
+
+### Manual Debug Info
+
+```python
+from .utils import print_debug_info
+
+# In your test:
+print_debug_info()  # Prints pods, deployment, service status
+```
+
+### Check Specific Resources
+
+```python
+from .utils import get_pods, get_pod_logs
+
+pods = get_pods("app=hello-flask")
+for pod in pods:
+    name = pod['metadata']['name']
+    logs = get_pod_logs(name, tail=50)
+    print(f"Pod {name} logs:\n{logs}")
+```
+
+## Benefits Summary
+
+✅ **Reduced Code Duplication**: ~200 lines of duplicate code eliminated  
+✅ **Better Error Handling**: Consistent error messages and exceptions  
+✅ **Improved Debugging**: Automatic debug output, helper functions  
+✅ **Environment Awareness**: Different timeouts for CI vs local  
+✅ **Better Organization**: Clear separation of concerns  
+✅ **Easier Maintenance**: Single source of truth for common operations  
+✅ **More Testable**: Isolated, focused test functions  
+✅ **Better Documentation**: Type hints, docstrings, examples  
+
+## Future Enhancements
+
+Potential improvements for the future:
+
+1. Add more utility functions as patterns emerge
+2. Create custom assertions (e.g., `assert_pod_ready()`)
+3. Add performance benchmarking fixtures
+4. Create test data factories for complex scenarios
+5. Add integration with test reporting tools
+6. Create visual test reports with pod state diagrams

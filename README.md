@@ -236,109 +236,17 @@ Look for events like:
 - `Killing`: Container being killed
 - `Started`: Container restarted successfully
 
-## Run Application-Level Unit Tests
-```
+## Run Tests
+
+### Application Unit Tests
+```bash
 pytest app/tests/ -v
 ```
+Tests the Python/Flask application logic independently of Kubernetes.
 
-* Tests the Python/Flask application logic independently of Kubernetes.
-* Example output: `test_app.py::test_hello_route PASSED`
+### Kubernetes Integration Tests
 
-## Run Kubernetes-Level Tests
-
-These tests check that your deployment and services are working in the cluster.
-
-**✅ Tests work with BOTH NodePort and Ingress deployments!**
-
-```
-pytest test_k8s/ -v
-```
-
-### What the tests do:
-
-* **`test_deployment.py`** → Verifies Pods are Running
-  - ✅ Works with both NodePort and Ingress
-
-* **`test_configmap.py`** → Verifies ConfigMap environment variables
-  - ✅ Works with both NodePort and Ingress
-
-* **`test_liveness_probe.py`** → Verifies Liveness Probe and Self-Healing Configuration
-  - ✅ Confirms liveness probe is configured correctly
-  - ✅ Confirms readiness probe is configured correctly
-  - ✅ Verifies multiple replicas are maintained
-  - **Note:** Only configuration tests - behavioral/timing tests moved to manual suite
-
-* **`test_crash_recovery_manual.py`** → Manual self-healing testing (optional)
-  - 🔧 For manual testing only (not part of automated suite)
-  - Tests ReplicaSet self-healing when pod is deleted (timing-dependent)
-  - Tests container restart when PID 1 is killed (timing-dependent)
-  - **Run all manual tests:** `pytest test_k8s/ -m manual -v -s`
-  - **Run individual tests:**
-    - Pod deletion test: `pytest test_k8s/test_crash_recovery_manual.py::test_self_healing_pod_deletion -v -s -m ""`
-    - Crash recovery test: `pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -v -s -m ""`
-  - **Note:** Use `-m ""` to override the default marker filter when running individual tests
-  - **Note:** These tests involve wait times and race conditions - manual verification recommended
-
-* **`test_service_access.py`** → Verifies service endpoint responds
-  - ✅ **Auto-detects service type** (NodePort or ClusterIP)
-  - For NodePort: Uses `minikube service hello-flask --url`
-  - For ClusterIP + Ingress: Tests via Ingress host (e.g., `http://hello-flask.local`)
-
-* **`test_ingress.py`** → Verifies Ingress configuration (if deployed)
-  - ⚠️ Only runs when Ingress is deployed (skips otherwise)
-  - Checks Ingress rules, backend service, and address assignment
-
-### Running specific tests:
-
-```bash
-# Run all K8s tests
-pytest test_k8s/ -v
-
-# Run only liveness probe tests (automated suite)
-pytest test_k8s/test_liveness_probe.py -v
-
-# Run manual crash recovery tests (optional, timing-dependent)
-pytest test_k8s/ -m manual -v -s
-
-# Run only deployment tests
-pytest test_k8s/test_deployment.py -v
-
-# Run only service access tests
-pytest test_k8s/test_service_access.py -v
-
-# Run only ingress tests (when using Ingress)
-pytest test_k8s/test_ingress.py -v
-
-# Simulate CI/CD environment (uses Minikube IP + Host header)
-CI=true pytest test_k8s/test_service_access.py -v -s
-```
-
-**Note about manual tests:**
-- Manual tests (pod deletion, crash recovery) are marked with `@pytest.mark.manual`
-- They are excluded from the default test run to avoid timing-related flakiness
-- Run them explicitly with: `pytest test_k8s/ -m manual -v -s`
-- These tests may take 60-90 seconds due to waiting for Kubernetes recovery
-```
-
-**Note:** Tests automatically detect the environment:
-- **Local**: Uses `http://hello-flask.local` (requires `/etc/hosts` configured)
-- **CI/CD**: Uses `http://<minikube-ip>` with `Host: hello-flask.local` header
-
-## Run Smoke Tests (Optional Script)
-The `smoke_test.sh` script runs all critical K8s tests automatically (excludes manual tests):
-```bash
-bash scripts/smoke_test.sh
-```
-
-Output will show:
-* Deployment checks
-* Pod health
-* Liveness and readiness probe configuration
-* ConfigMap and Secret validation
-* Service accessibility
-* Ingress configuration (if deployed)
-
-**Note:** Smoke tests exclude manual tests (pod deletion, crash recovery) for fast feedback. To run manual tests, use `pytest test_k8s/ -m manual -v -s`.
+See the **[Testing](#testing)** section below for detailed test commands and organization.
 
 ## Access the App Locally
 
@@ -451,88 +359,100 @@ If `test_service_reachable` fails in GitHub Actions:
 
 For more detailed debugging steps, see [`docs/DEBUGGING_CI_CD.md`](docs/DEBUGGING_CI_CD.md).
 
-# Automation scripts
-Break the workflow into modular Bash scripts, each with a targeted function, so you can run only what you need.
-This is a good structure for automation: clean, reusable, and easy to integrate into pipelines.
+# Automation Scripts
 
-All scripts run within the cloud environment, remember before running the scripts to initiate the local cloud (`minikube start`), as well as release all resources when done development and testing (`minikube stop`).
+Modular Bash scripts for common workflows. Each script has a targeted function, making it easy to run only what you need.
 
-## Usage Example
-Each script can be run individually:
-```
-bash scripts/build_image.sh         # Build image
-bash scripts/deploy_local.sh        # Deploy app with Ingress
-bash scripts/unit_tests.sh          # Run app unit tests
-bash scripts/k8s_tests.sh           # Run K8s-level tests
-bash scripts/liveness_test.sh       # Run automated liveness probe configuration tests
-bash scripts/liveness_test.sh --manual # Run manual behavioral tests (pod deletion, crash recovery)
-bash scripts/liveness_test.sh --config # Run only configuration check
-bash scripts/smoke_test.sh          # Run all automated tests (fast)
-bash scripts/port_forward.sh        # Forward service to localhost
-bash scripts/minikube_service_url.sh # Get service URL (works with both NodePort and Ingress)
-bash scripts/delete_local.sh        # Cleanup
-```
-## Convenience Shortcuts (Makefile)
+**Important:** Start Minikube before running scripts: `minikube start`
 
-Individual Script Targets:
-```
-make build - Build Docker image
-make deploy - Deploy to local cluster
-make unit-tests - Run unit tests
-make k8s-tests - Run k8s integration tests
-make liveness-test - Run automated liveness probe configuration tests
-make liveness-test-manual - Run manual behavioral tests (pod deletion, crash recovery)
-make liveness-test-config - Run only liveness probe configuration check
-make smoke-test - Run smoke tests
-make port-forward - Forward service port to localhost
-make minikube-url - Get service URL and access methods
-```
-Composite Targets:
-```
-make test-all - Run both unit and k8s tests
-make full-deploy - Complete workflow: build → deploy → smoke test
-```
-Utility:
-```
-make help - Show all available commands
-```
+## Quick Reference
 
-Clean Up:
-```
-make delete - Delete local deployment
-```
-
-## Scripts Architecture
-
-All bash scripts in the `scripts/` directory use a **shared utilities library** for consistent output and easier maintenance.
-
-### Shared Library (`scripts/lib/common.sh`)
-
-The common library provides:
-- **Color definitions**: GREEN, BLUE, YELLOW, RED, NC (No Color)
-- **Logging functions**: `log_info()`, `log_success()`, `log_warning()`, `log_error()`, `log_note()`
-- **Header formatting**: `print_header()` for consistent script headers
-- **Pytest helpers**: `run_pytest()` for standardized test execution
-- **Validation helpers**: `command_exists()`, `check_git_repo()`
-- **Path helpers**: `get_scripts_dir()`, `get_project_root()`
-
-### Benefits
-
-✅ **Single source of truth** - Colors and formatting defined once  
-✅ **Consistent output** - All scripts use the same style  
-✅ **Easier maintenance** - Update logging in one place, applies everywhere  
-✅ **Better error handling** - Standardized error messages and exit codes  
-✅ **Code reuse** - Common patterns extracted into reusable functions  
-
-### Usage in Scripts
-
-All scripts source the common library:
 ```bash
-#!/bin/bash
-source "$(dirname "$0")/lib/common.sh"
+# Build & Deploy
+bash scripts/build_image.sh         # Build Docker image
+bash scripts/deploy_local.sh        # Deploy with Ingress
+bash scripts/delete_local.sh        # Cleanup resources
 
-print_header "My Script Title"
-log_info "Processing started..."
-run_pytest "test_k8s/" "-v"
-log_success "All done!"
+# Testing
+bash scripts/unit_tests.sh          # App unit tests
+bash scripts/k8s_tests.sh           # K8s integration tests (automated)
+bash scripts/smoke_test.sh          # Quick validation (automated tests)
+bash scripts/liveness_test.sh       # Liveness probe tests (see modes below)
+
+# Utilities
+bash scripts/port_forward.sh        # Forward to localhost:8080
+bash scripts/minikube_service_url.sh # Get service access URL
+bash scripts/setup_ingress.sh       # Setup Ingress controller
 ```
+
+### Liveness Test Modes
+```bash
+bash scripts/liveness_test.sh           # Automated config tests (default)
+bash scripts/liveness_test.sh --manual  # Manual behavioral tests (slow)
+bash scripts/liveness_test.sh --config  # Config check only
+```
+
+## Makefile Shortcuts
+
+```bash
+make build           # Build Docker image
+make deploy          # Deploy to cluster
+make unit-tests      # Run unit tests
+make k8s-tests       # Run K8s tests
+make smoke-test      # Quick validation
+make delete          # Cleanup
+
+# Composite targets
+make test-all        # Run all tests
+make full-deploy     # Build → deploy → smoke test
+make help            # Show all commands
+```
+
+📚 **For detailed script documentation, usage examples, and troubleshooting**, see [`scripts/README.md`](scripts/README.md)
+
+---
+
+## Testing
+
+### Quick Test Commands
+
+```bash
+# Run all automated tests (excludes manual tests)
+pytest test_k8s/ -v -m 'not manual'
+
+# Run specific test categories
+pytest test_k8s/ -v -m ingress     # Ingress tests only
+pytest test_k8s/ -v -m nodeport    # NodePort tests only
+pytest test_k8s/ -v -m manual      # Manual tests (slow, timing-dependent)
+
+# Run specific test file
+pytest test_k8s/test_deployment.py -v
+
+# Simulate CI/CD environment (uses Minikube IP + Host header)
+CI=true pytest test_k8s/test_service_ingress.py -v -s
+```
+
+### Test Organization
+
+The test suite uses:
+- **Shared utilities** (`test_k8s/utils.py`) - 20+ reusable functions for Kubernetes operations
+- **Pytest fixtures** (`test_k8s/conftest.py`) - 10+ fixtures for automated test setup
+- **Custom markers** - Categorize tests for selective execution (`@pytest.mark.ingress`, `@pytest.mark.nodeport`, `@pytest.mark.manual`)
+
+📚 **For complete test architecture, utilities reference, and debugging guide**, see [`test_k8s/README.md`](test_k8s/README.md)
+
+## 📚 Documentation
+
+Comprehensive documentation is available in the [`docs/`](docs/) directory:
+
+- **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **Test Suite:**
+  - [Test Architecture](docs/testing/TEST_ARCHITECTURE.md) - Test design and utilities
+  - [Test Refactoring](docs/testing/TEST_REFACTORING.md) - Recent improvements
+  - [Test Usage Guide](test_k8s/README.md) - How to run tests
+- **Scripts:**
+  - [Script Updates](docs/scripts/SCRIPT_UPDATES.md) - Bash script changes
+- **Operations:**
+  - [CI/CD Debugging](docs/DEBUGGING_CI_CD.md) - Pipeline troubleshooting
+  - [Ingress Guide](docs/INGRESS_404_EXPLAINED.md) - Ingress issues
+  - [Minikube Guide](docs/MINIKUBE_SERVICE_URL_FIX.md) - Service access

@@ -29,7 +29,7 @@ The main `CHANGELOG.md` follows [Keep a Changelog](https://keepachangelog.com/) 
 ## [1.0.0] - 2025-11-14
 
 ### Added
-- Ingress support for Minikube and EKS
+- Ingress support for Minikube
 - Automated ingress setup script
 
 ### Changed
@@ -209,7 +209,7 @@ After the workflow completes:
    - Changed service from NodePort to ClusterIP (requires Ingress setup)
    
    ### Added
-   - Ingress support for Minikube and EKS
+   - Ingress support for Minikube
    ```
 
 3. **Create git tag:**

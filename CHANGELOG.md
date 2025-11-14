@@ -12,10 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Infrastructure
 - **Ingress resource** (`k8s/ingress.yaml`)
   - Support for nginx ingress controller (Minikube)
-  - Support for AWS Load Balancer Controller (EKS)
   - Uses modern `spec.ingressClassName` instead of deprecated annotation
   - Host-based routing configuration for `hello-flask.local`
-  - Comprehensive annotations for both Minikube and EKS deployments
 
 #### Scripts
 - **`scripts/setup_ingress.sh`** - Automated Ingress setup for Minikube
@@ -83,13 +81,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 #### Documentation
 - **`README.md`**
   - Added "Deploy the app to Kubernetes" section with two options:
-    - Option A: Direct Access (without Ingress/NodePort)
+    - Option A: Direct Access (NodePort)
     - Option B: Using Ingress (production-like setup)
   - Added Ingress setup instructions
   - Updated test documentation showing both deployment methods work
   - Added Troubleshooting section for local testing and CI/CD issues
-  - Updated "Deploying to AWS EKS" section with Ingress configuration
-  - Added Minikube vs EKS comparison table
   - Updated script descriptions to mention Ingress support
   - Fixed curl examples to use correct Host header
   - Added CI simulation example for tests
@@ -103,7 +99,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Ingress Deprecation Warning
 - Updated `k8s/ingress.yaml` to use `spec.ingressClassName: nginx` instead of deprecated `kubernetes.io/ingress.class` annotation
-- Applied to both Minikube (nginx) and EKS (alb) configurations
 
 #### 404 Errors with Ingress
 - **Root cause**: Nginx Ingress routes based on `Host` HTTP header, not IP address
@@ -199,14 +194,13 @@ If you have an existing deployment without Ingress:
 
 - ✅ Kubernetes 1.18+ (for `spec.ingressClassName` support)
 - ✅ Minikube with nginx ingress addon
-- ✅ AWS EKS with AWS Load Balancer Controller
 - ✅ Python 3.11+
 - ✅ pytest 9.0+
 - ✅ requests library
 
 ## Contributors
 
-This release includes comprehensive Ingress support for both local (Minikube) and production (EKS) environments, with intelligent fallbacks, extensive testing, and thorough documentation.
+This release includes comprehensive Ingress support for local Minikube development, with intelligent fallbacks, extensive testing, and thorough documentation.
 
 ---
 

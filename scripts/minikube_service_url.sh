@@ -13,7 +13,8 @@
 #   - Uses Ingress hostname (hello-flask.local) or Minikube IP with Host header
 #
 # In CI, this functionality is tested via pytest:
-#   - See: `test_k8s/test_service_access.py`
+#   - See: `test_k8s/test_service_nodeport.py` (NodePort tests)
+#   - See: `test_k8s/test_service_ingress.py` (Ingress tests)
 #
 # Use this script locally during development; CI runs stronger assertions in tests.
 # -----------------------------------------------------------------------------

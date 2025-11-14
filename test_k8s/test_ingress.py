@@ -1,36 +1,24 @@
-import subprocess
-import json
+"""Test Ingress resource configuration and status."""
 import time
+import pytest
 
-def test_ingress_exists():
+from .utils import get_ingress, run_kubectl
+
+
+@pytest.mark.ingress
+def test_ingress_exists(ingress):
     """Check that Ingress resource exists."""
-    result = subprocess.run(
-        ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
-        capture_output=True, text=True
-    )
+    ingress_name = ingress.get("metadata", {}).get("name")
+    assert ingress_name == "hello-flask-ingress", \
+        f"Expected ingress 'hello-flask-ingress', got '{ingress_name}'"
     
-    # If ingress doesn't exist, skip this test
-    if result.returncode != 0:
-        import pytest
-        pytest.skip("Ingress not deployed. This test only runs when using Ingress setup.")
-    
-    ingress_data = json.loads(result.stdout)
-    assert ingress_data.get("metadata", {}).get("name") == "hello-flask-ingress"
     print("✓ Ingress resource 'hello-flask-ingress' exists")
 
-def test_ingress_has_rules():
+
+@pytest.mark.ingress
+def test_ingress_has_rules(ingress, service_name):
     """Check that Ingress has proper routing rules."""
-    result = subprocess.run(
-        ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
-        capture_output=True, text=True
-    )
-    
-    if result.returncode != 0:
-        import pytest
-        pytest.skip("Ingress not deployed.")
-    
-    ingress_data = json.loads(result.stdout)
-    rules = ingress_data.get("spec", {}).get("rules", [])
+    rules = ingress.get("spec", {}).get("rules", [])
     
     assert len(rules) > 0, "Ingress has no rules defined"
     
@@ -44,38 +32,33 @@ def test_ingress_has_rules():
     
     # Check path points to hello-flask service
     backend = paths[0].get("backend", {})
-    service_name = backend.get("service", {}).get("name")
-    assert service_name == "hello-flask", f"Expected service 'hello-flask', got '{service_name}'"
+    backend_service_name = backend.get("service", {}).get("name")
     
-    print(f"✓ Ingress routes {first_rule.get('host')} → hello-flask service")
+    assert backend_service_name == service_name, \
+        f"Expected service '{service_name}', got '{backend_service_name}'"
+    
+    print(f"✓ Ingress routes {first_rule.get('host')} → {service_name} service")
 
-def test_ingress_has_address():
-    """Check that Ingress has been assigned an address.
+
+@pytest.mark.ingress
+def test_ingress_has_address(ingress_name, k8s_timeouts):
+    """
+    Check that Ingress has been assigned an address.
     
     This indicates the Ingress controller is working and has processed the resource.
     """
-    result = subprocess.run(
-        ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
-        capture_output=True, text=True
-    )
+    # Wait up to timeout for address to be assigned
+    max_wait = k8s_timeouts.get('ingress_ready', 60)
     
-    if result.returncode != 0:
-        import pytest
-        pytest.skip("Ingress not deployed.")
-    
-    ingress_data = json.loads(result.stdout)
-    
-    # Wait up to 30 seconds for address to be assigned
-    max_wait = 60
     for i in range(max_wait):
-        result = subprocess.run(
-            ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
-            capture_output=True, text=True
-        )
-        ingress_data = json.loads(result.stdout)
+        ing = get_ingress(ingress_name)
+        
+        if not ing:
+            time.sleep(1)
+            continue
         
         # Check for address in status
-        load_balancer = ingress_data.get("status", {}).get("loadBalancer", {})
+        load_balancer = ing.get("status", {}).get("loadBalancer", {})
         ingress_list = load_balancer.get("ingress", [])
         
         if ingress_list and len(ingress_list) > 0:
@@ -88,34 +71,24 @@ def test_ingress_has_address():
             time.sleep(1)
     
     # If we get here, no address was assigned
-    raise AssertionError(
-        "Ingress has no address assigned after 30 seconds. "
-        "This may indicate the Ingress controller is not running. "
-        "For Minikube, run: minikube addons enable ingress"
+    pytest.fail(
+        f"Ingress has no address assigned after {max_wait} seconds. "
+        f"This may indicate the Ingress controller is not running. "
+        f"For Minikube, run: minikube addons enable ingress"
     )
 
-def test_ingress_class():
+
+@pytest.mark.ingress
+def test_ingress_class(ingress):
     """Verify Ingress has the correct ingress class annotation."""
-    result = subprocess.run(
-        ["kubectl", "get", "ingress", "hello-flask-ingress", "-o", "json"],
-        capture_output=True, text=True
-    )
-    
-    if result.returncode != 0:
-        import pytest
-        pytest.skip("Ingress not deployed.")
-    
-    ingress_data = json.loads(result.stdout)
-    annotations = ingress_data.get("metadata", {}).get("annotations", {})
+    annotations = ingress.get("metadata", {}).get("annotations", {})
     
     ingress_class = (
         annotations.get("kubernetes.io/ingress.class") or
-        ingress_data.get("spec", {}).get("ingressClassName")
+        ingress.get("spec", {}).get("ingressClassName")
     )
     
-    assert ingress_class == "nginx", (
-        f"Unexpected ingress class: {ingress_class}. "
-        f"Expected 'nginx' for Minikube"
-    )
+    assert ingress_class == "nginx", \
+        f"Unexpected ingress class: {ingress_class}. Expected 'nginx' for Minikube"
     
     print(f"✓ Ingress class: {ingress_class}")

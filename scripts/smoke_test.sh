@@ -11,11 +11,11 @@ log_info "Running smoke tests to verify deployment..."
 log_note "This includes: deployment, configmap, service access, and liveness probe configuration"
 echo ""
 
-# Run all K8s tests (now all are fast configuration checks)
-# Timing-dependent behavioral tests have been moved to manual suite
-run_pytest "test_k8s/" "-v"
+# Run all K8s tests except manual tests (fast configuration checks only)
+# Timing-dependent behavioral tests are excluded via @pytest.mark.manual
+run_pytest "test_k8s/" "-v -m 'not manual'"
 
 log_success "Smoke tests completed successfully!"
-log_note "Note: Behavioral/timing tests (pod deletion, crash recovery) are in test_crash_recovery_manual.py"
-log_note "To run manual tests: pytest test_k8s/test_crash_recovery_manual.py -v -s -m \"\""
+log_note "Note: Manual tests excluded (pod deletion, crash recovery)."
+log_note "To run manual tests: pytest test_k8s/ -v -m manual"
 echo ""

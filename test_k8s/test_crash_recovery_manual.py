@@ -28,46 +28,23 @@ For manual testing without pytest:
     kubectl get pods -l app=hello-flask -w
 """
 
-import json
-import subprocess
 import time
 import pytest
 
-
-def run_kubectl(*args):
-    """Run kubectl command and return result."""
-    result = subprocess.run(
-        ["kubectl"] + list(args),
-        capture_output=True,
-        text=True
-    )
-    return result
-
-
-def get_pods():
-    """Get all hello-flask pods."""
-    result = run_kubectl("get", "pods", "-l", "app=hello-flask", "-o", "json")
-    assert result.returncode == 0, f"Failed to get pods: {result.stderr}"
-    return json.loads(result.stdout)["items"]
-
-
-def get_pod_restart_count(pod_name):
-    """Get restart count for a specific pod."""
-    result = run_kubectl("get", "pod", pod_name, "-o", "json")
-    if result.returncode != 0:
-        return None
-    
-    pod = json.loads(result.stdout)
-    container_statuses = pod["status"].get("containerStatuses", [])
-    
-    if not container_statuses:
-        return 0
-    
-    return container_statuses[0].get("restartCount", 0)
+from .utils import (
+    get_pods,
+    get_running_pods,
+    get_pod_restart_count,
+    delete_pod,
+    exec_in_pod,
+    print_debug_info,
+    wait_for_pods_ready
+)
 
 
 @pytest.mark.manual
-def test_self_healing_pod_deletion():
+@pytest.mark.slow
+def test_self_healing_pod_deletion(k8s_timeouts, label_selector):
     """
     MANUAL TEST: Verify that Kubernetes recreates deleted pods (tests ReplicaSet self-healing).
     
@@ -81,7 +58,7 @@ def test_self_healing_pod_deletion():
         pytest test_k8s/test_crash_recovery_manual.py -v -s
     """
     # Get current pods
-    initial_pods = get_pods()
+    initial_pods = get_pods(label_selector)
     assert len(initial_pods) >= 1, "At least one pod should be running"
     
     initial_pod_count = len(initial_pods)
@@ -91,44 +68,26 @@ def test_self_healing_pod_deletion():
     print(f"   Initial pod count: {initial_pod_count}")
     
     # Delete one pod
-    result = run_kubectl("delete", "pod", pod_to_delete, "--wait=false")
-    assert result.returncode == 0, f"Failed to delete pod: {result.stderr}"
+    success = delete_pod(pod_to_delete, wait=False)
+    assert success, f"Failed to delete pod: {pod_to_delete}"
     
     print(f"   Pod {pod_to_delete} deletion initiated...")
     print(f"   Waiting for ReplicaSet to create replacement...")
     
     # Wait for new pod to be created and become ready
-    max_wait = 60  # seconds
-    start_time = time.time()
-    new_pod_running = False
+    timeout = k8s_timeouts.get('pod_ready', 60)
     
-    while time.time() - start_time < max_wait:
-        current_pods = get_pods()
-        running_pods = [
-            p for p in current_pods
-            if p["status"]["phase"] == "Running" and
-            all(cs.get("ready", False) for cs in p["status"].get("containerStatuses", []))
-        ]
-        
-        if len(running_pods) >= initial_pod_count:
-            new_pod_running = True
-            elapsed = time.time() - start_time
-            print(f"   ✅ New pod created and running (took {elapsed:.1f}s)")
-            break
-        
-        time.sleep(2)
-    
-    if not new_pod_running:
-        print(f"   ⚠️  New pod did not become ready within {max_wait}s")
+    if wait_for_pods_ready(initial_pod_count, label_selector=label_selector, timeout=timeout):
+        elapsed_info = f"within {timeout}s"
+        print(f"   ✅ New pod created and running ({elapsed_info})")
+    else:
+        print(f"   ⚠️  New pod did not become ready within {timeout}s")
         print(f"   This may indicate cluster resource issues or slow startup")
-        print(f"   Current pods: {len(get_pods())}")
-        print(f"\n   💡 MANUAL VERIFICATION SUGGESTIONS:")
-        print(f"   1. Check pod status: kubectl get pods -l app=hello-flask")
-        print(f"   2. Check ReplicaSet: kubectl get rs -l app=hello-flask")
-        print(f"   3. Check events: kubectl get events --sort-by='.lastTimestamp'")
+        print(f"   Current pods: {len(get_pods(label_selector))}")
+        print_debug_info(label_selector)
     
     # Verify we have the correct number of running pods
-    final_pods = get_pods()
+    final_pods = get_pods(label_selector)
     running_count = sum(1 for p in final_pods if p["status"]["phase"] == "Running")
     
     print(f"   Final state: {running_count}/{initial_pod_count} pods running")
@@ -140,7 +99,8 @@ def test_self_healing_pod_deletion():
 
 
 @pytest.mark.manual
-def test_container_restart_on_crash():
+@pytest.mark.slow
+def test_container_restart_on_crash(k8s_timeouts, label_selector):
     """
     MANUAL TEST: Verify that Kubernetes automatically recovers from container crashes.
     
@@ -157,7 +117,7 @@ def test_container_restart_on_crash():
         pytest test_k8s/test_crash_recovery_manual.py -v -s
     """
     # Get initial state
-    pods = get_pods()
+    pods = get_pods(label_selector)
     assert len(pods) >= 1, "At least one pod should be running"
     
     test_pod = pods[0]["metadata"]["name"]
@@ -172,8 +132,8 @@ def test_container_restart_on_crash():
     
     # Kill the main process (PID 1) in the container
     # Use SIGKILL (-9) which cannot be caught or ignored
-    result = run_kubectl("exec", test_pod, "--", "bash", "-c", "kill -9 1")
     # Note: This command will fail because the process dies, but that's expected
+    exec_in_pod(test_pod, ["bash", "-c", "kill -9 1"], check=False)
     
     print(f"   Crash command sent, waiting for self-healing...")
     print(f"   Expected: Container restart OR pod replacement")
@@ -188,7 +148,7 @@ def test_container_restart_on_crash():
     while time.time() - start_time < max_wait:
         time.sleep(2)
         
-        current_pods = get_pods()
+        current_pods = get_pods(label_selector)
         
         # Check if the original pod's container restarted
         current_restart_count = get_pod_restart_count(test_pod)
@@ -220,32 +180,18 @@ def test_container_restart_on_crash():
         print(f"   ⚠️  No obvious recovery detected within {max_wait}s")
         print(f"   This is common due to race conditions - container may restart too fast to observe")
         print(f"   Current restart count: {get_pod_restart_count(test_pod)}")
-        print(f"\n   💡 MANUAL VERIFICATION SUGGESTIONS:")
-        print(f"   1. Check pod events: kubectl describe pod {test_pod}")
-        print(f"   2. Watch pods in real-time: kubectl get pods -l app=hello-flask -w")
-        print(f"   3. Check restart count: kubectl get pods -l app=hello-flask")
+        print_debug_info(label_selector)
     
     # Wait for all pods to be ready
     print(f"   Waiting for pods to stabilize...")
-    time.sleep(10)
+    wait_for_pods_ready(initial_pod_count, label_selector=label_selector, timeout=30)
     
     # Verify we have the expected number of healthy, ready pods
-    final_pods = get_pods()
-    running_ready_pods = [
-        p for p in final_pods
-        if p["status"]["phase"] == "Running" and
-        all(cs.get("ready", False) for cs in p["status"].get("containerStatuses", []))
-    ]
+    final_pods = get_running_pods(label_selector)
     
-    print(f"   Final state: {len(running_ready_pods)} pod(s) running and ready")
+    print(f"   Final state: {len(final_pods)} pod(s) running and ready")
     
     if recovery_type:
         print(f"   ✅ Self-healing verified via {recovery_type}")
     else:
         print(f"   ℹ️  Manual verification recommended - automated detection may miss fast restarts")
-
-
-if __name__ == "__main__":
-    # Allow running directly: python test_crash_recovery_manual.py
-    print("Running manual crash recovery test...")
-    test_container_restart_on_crash()

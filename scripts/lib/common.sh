@@ -67,7 +67,8 @@ run_pytest() {
     fi
     
     # Run pytest and capture exit code
-    if pytest "$test_path" $pytest_args; then
+    # Use eval to properly handle quoted arguments in pytest_args
+    if eval pytest '"$test_path"' $pytest_args; then
         return 0
     else
         log_error "Pytest failed with exit code $?"

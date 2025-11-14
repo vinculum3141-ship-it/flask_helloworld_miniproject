@@ -6,49 +6,13 @@ This test verifies that:
 2. Kubernetes automatically restarts containers when they crash
 3. Self-healing behavior works as expected
 """
-import subprocess
-import json
-import time
 import pytest
 
-
-def run_kubectl(*args):
-    """Helper function to run kubectl commands."""
-    result = subprocess.run(
-        ["kubectl"] + list(args),
-        capture_output=True,
-        text=True,
-        check=False
-    )
-    return result
+from .utils import get_deployment, get_pods, get_running_pods
 
 
-def get_pods():
-    """Get all hello-flask pods."""
-    result = run_kubectl("get", "pods", "-l", "app=hello-flask", "-o", "json")
-    if result.returncode != 0:
-        pytest.fail(f"Failed to get pods: {result.stderr}")
-    return json.loads(result.stdout)["items"]
-
-
-def get_pod_restart_count(pod_name):
-    """Get the restart count for a specific pod."""
-    result = run_kubectl("get", "pod", pod_name, "-o", "json")
-    if result.returncode != 0:
-        return None
-    pod_data = json.loads(result.stdout)
-    container_statuses = pod_data.get("status", {}).get("containerStatuses", [])
-    if container_statuses:
-        return container_statuses[0].get("restartCount", 0)
-    return 0
-
-
-def test_liveness_probe_configured():
+def test_liveness_probe_configured(deployment):
     """Verify that liveness probe is configured in the deployment."""
-    result = run_kubectl("get", "deployment", "hello-flask", "-o", "json")
-    assert result.returncode == 0, f"Failed to get deployment: {result.stderr}"
-    
-    deployment = json.loads(result.stdout)
     containers = deployment["spec"]["template"]["spec"]["containers"]
     
     assert len(containers) > 0, "No containers found in deployment"
@@ -78,12 +42,8 @@ def test_liveness_probe_configured():
     print(f"   Failure Threshold: {liveness_probe['failureThreshold']}")
 
 
-def test_readiness_probe_configured():
+def test_readiness_probe_configured(deployment):
     """Verify that readiness probe is also configured."""
-    result = run_kubectl("get", "deployment", "hello-flask", "-o", "json")
-    assert result.returncode == 0, f"Failed to get deployment: {result.stderr}"
-    
-    deployment = json.loads(result.stdout)
     containers = deployment["spec"]["template"]["spec"]["containers"]
     main_container = containers[0]
     
@@ -95,12 +55,8 @@ def test_readiness_probe_configured():
     print("\n✅ Readiness probe is configured")
 
 
-def test_multiple_replicas_maintained():
+def test_multiple_replicas_maintained(deployment):
     """Verify that the deployment maintains the desired number of replicas."""
-    result = run_kubectl("get", "deployment", "hello-flask", "-o", "json")
-    assert result.returncode == 0, f"Failed to get deployment: {result.stderr}"
-    
-    deployment = json.loads(result.stdout)
     desired_replicas = deployment["spec"]["replicas"]
     ready_replicas = deployment["status"].get("readyReplicas", 0)
     
@@ -108,8 +64,3 @@ def test_multiple_replicas_maintained():
         f"Expected {desired_replicas} ready replicas, but got {ready_replicas}"
     
     print(f"\n✅ Deployment maintaining {ready_replicas}/{desired_replicas} replicas")
-
-
-if __name__ == "__main__":
-    # Run tests with pytest
-    pytest.main([__file__, "-v", "-s"])

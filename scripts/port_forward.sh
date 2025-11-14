@@ -4,7 +4,8 @@
 # local check. Works with both NodePort and ClusterIP services.
 #
 # CI coverage: Service reachability is validated in pytest via
-#   test_k8s/test_service_access.py
+#   test_k8s/test_service_nodeport.py (NodePort service type)
+#   test_k8s/test_service_ingress.py (ClusterIP with Ingress)
 #
 # Requirements:
 # - Minikube is running and configured (uses `minikube kubectl -- ...`).

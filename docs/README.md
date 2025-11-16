@@ -10,15 +10,12 @@ docs/
 ├── testing/                       # Test suite documentation
 │   ├── TEST_ARCHITECTURE.md      # Test suite architecture and design
 │   ├── TEST_REFACTORING.md       # Refactoring summary and changes
-│   └── README_UPDATES.md         # README update history
-├── scripts/                       # Bash script documentation
-│   └── SCRIPT_UPDATES.md         # Script changes and updates
+│   └── SCRIPT_INTEGRATION.md     # Script integration with pytest markers
 ├── CHANGELOG_GUIDE.md            # Changelog maintenance guide
-├── CI_CD_FIX_SUMMARY.md          # CI/CD pipeline fixes
-├── DEBUGGING_CI_CD.md            # CI/CD debugging guide
+├── INGRESS_CI_CD_TROUBLESHOOTING.md  # CI/CD and Ingress troubleshooting
+├── CI_CD_GUIDE.md                # CI/CD pipeline guide
 ├── INGRESS_404_EXPLAINED.md      # Ingress troubleshooting
-├── MINIKUBE_SERVICE_URL_FIX.md   # Minikube service access
-└── README_CURL_FIX.md            # cURL command fixes
+├── DEVELOPMENT_WORKFLOW.md       # Development workflow and best practices
 ```
 
 ## 📚 Documentation Categories
@@ -38,31 +35,32 @@ Located in `docs/testing/`
   - Migration guide
   - Best practices
 
-- **[README_UPDATES.md](testing/README_UPDATES.md)** - README update history
-
-### Scripts Documentation
-Located in `docs/scripts/`
-
-- **[SCRIPT_UPDATES.md](scripts/SCRIPT_UPDATES.md)** - Bash script changes including:
-  - Updated scripts overview
-  - Pytest marker integration
-  - Usage examples
-  - Migration notes
+- **[SCRIPT_INTEGRATION.md](testing/SCRIPT_INTEGRATION.md)** - Script integration with pytest markers including:
+  - Script test execution behavior
+  - Pytest marker reference
+  - Running tests manually
+  - Related documentation links
 
 ### CI/CD & Operations
 Located in `docs/` (root)
 
-- **[CI_CD_FIX_SUMMARY.md](CI_CD_FIX_SUMMARY.md)** - Summary of CI/CD pipeline fixes
-- **[DEBUGGING_CI_CD.md](DEBUGGING_CI_CD.md)** - Guide for debugging CI/CD issues
+- **[CI_CD_GUIDE.md](CI_CD_GUIDE.md)** - Complete CI/CD pipeline reference including:
+  - Workflow triggers and stages
+  - Features checklist and capabilities
+  - GitHub CLI usage and examples
+  - Manual testing and validation
+  - Troubleshooting guide
+- **[INGRESS_CI_CD_TROUBLESHOOTING.md](INGRESS_CI_CD_TROUBLESHOOTING.md)** - CI/CD and Ingress troubleshooting including:
+  - Ingress Host header routing in CI/CD
+  - Multiple solution approaches
+  - Step-by-step debugging guide
+  - Common issues and solutions
 - **[CHANGELOG_GUIDE.md](CHANGELOG_GUIDE.md)** - How to maintain changelogs
-- **[DOCUMENTATION_REORGANIZATION.md](DOCUMENTATION_REORGANIZATION.md)** - Documentation structure guide
 
 ### Troubleshooting Guides
 Located in `docs/` (root)
 
 - **[INGRESS_404_EXPLAINED.md](INGRESS_404_EXPLAINED.md)** - Ingress 404 error troubleshooting
-- **[MINIKUBE_SERVICE_URL_FIX.md](MINIKUBE_SERVICE_URL_FIX.md)** - Minikube service access issues
-- **[README_CURL_FIX.md](README_CURL_FIX.md)** - cURL command troubleshooting
 
 ## 🔍 Quick Links
 
@@ -71,20 +69,31 @@ Located in `docs/` (root)
 - [Test README](../test_k8s/README.md) - Test usage guide
 
 ### For Developers
+- [Development Workflow](DEVELOPMENT_WORKFLOW.md) - Pre-push validation and best practices
 - [Test Architecture](testing/TEST_ARCHITECTURE.md) - Understand the test suite
 - [Test Refactoring](testing/TEST_REFACTORING.md) - Recent improvements
-- [Script Updates](scripts/SCRIPT_UPDATES.md) - Bash script changes
+- [Script Integration](testing/SCRIPT_INTEGRATION.md) - Script integration with pytest markers
 
 ### For Operations
-- [CI/CD Debugging](DEBUGGING_CI_CD.md) - Troubleshoot pipeline issues
+- [Development Workflow](DEVELOPMENT_WORKFLOW.md) - Pre-push validation scripts
+- [CI/CD Guide](CI_CD_GUIDE.md) - Complete pipeline reference
+- [CI/CD Troubleshooting](INGRESS_CI_CD_TROUBLESHOOTING.md) - Ingress and pipeline debugging
 - [Ingress Guide](INGRESS_404_EXPLAINED.md) - Fix ingress problems
-- [Minikube Guide](MINIKUBE_SERVICE_URL_FIX.md) - Service access issues
+- [Scripts Guide](../scripts/README.md) - Automation scripts including service access
 
 ## 📝 Contributing
 
 When adding new documentation:
-- Place test-related docs in `docs/testing/`
-- Place script-related docs in `docs/scripts/`
-- Place general operational docs in `docs/` root
-- Update this index file
-- Follow Markdown best practices
+- **Test documentation** goes in `docs/testing/` (architecture, design, best practices)
+- **Usage guides** stay with the code (e.g., `test_k8s/README.md` for test usage)
+- **Operational docs** go in `docs/` root (troubleshooting, guides, workflows)
+- **Update this index file** when adding new documentation
+- **Follow Markdown best practices** (clear headings, code blocks, links)
+
+### Documentation Organization Principles
+
+- ✅ **Separation of Concerns**: Group related documentation together
+- ✅ **Clear Naming**: Use descriptive filenames (e.g., `TEST_ARCHITECTURE.md`, `CI_CD_GUIDE.md`)
+- ✅ **Discoverability**: Maintain this index and cross-reference related docs
+- ✅ **Keep Usage with Code**: User-facing guides stay near the code they document
+- ✅ **Centralize Architecture**: Design and architecture docs belong in `docs/`

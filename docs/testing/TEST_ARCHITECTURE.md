@@ -1,53 +1,18 @@
-# Test Architecture Diagram
+# Test Suite Architecture
 
-## Before Refactoring
+## Overview
 
-```
-test_k8s/
-│
-├── test_configmap.py
-│   └── Uses: subprocess directly
-│
-├── test_deployment.py
-│   └── Uses: subprocess + json parsing
-│
-├── test_ingress.py
-│   └── Uses: subprocess + repeated code
-│
-├── test_liveness_probe.py
-│   ├── Local: run_kubectl()      ┐
-│   ├── Local: get_pods()         │ Duplicated
-│   └── Local: get_pod_restart()  ┘ Across Files
-│
-├── test_crash_recovery_manual.py
-│   ├── Local: run_kubectl()      ┐
-│   ├── Local: get_pods()         │ Duplicated
-│   └── Local: get_pod_restart()  ┘ Across Files
-│
-└── test_service_access.py
-    ├── NodePort tests    ┐ Mixed
-    └── Ingress tests     ┘ Concerns
-```
-
-**Issues:**
-- ❌ ~200 lines of duplicate code
-- ❌ No shared utilities
-- ❌ Inconsistent error handling
-- ❌ Mixed concerns in single file
-- ❌ Hardcoded timeouts
-- ❌ No pytest fixtures
-- ❌ Limited debugging capability
+The `test_k8s` directory uses a modular architecture with shared utilities, pytest fixtures, and custom markers for organized, maintainable testing.
 
 ---
 
-## After Refactoring
+## Current Architecture
 
 ```
 test_k8s/
 │
 ├── __init__.py                    ← Package marker
 ├── README.md                      ← Documentation
-├── REFACTORING_SUMMARY.md         ← This summary
 │
 ├── utils.py ─────────────────────┐
 │   │                              │
@@ -92,21 +57,22 @@ test_k8s/
 │                                 ││
 ├── test_liveness_probe.py ───────┼┤
 │   └── Uses: utils, fixtures     ││  All Tests
-│       (removed local functions) ││  Import From
-│                                 ││  Shared Modules
-├── test_crash_recovery_manual.py ┼┤
+│                                 ││  Import From
+├── test_crash_recovery_manual.py ┼┤  Shared Modules
 │   └── Uses: utils, fixtures     ││
-│       (removed local functions) ││
 │                                 ││
 ├── test_service_nodeport.py ─────┼┤
 │   ├── @pytest.mark.nodeport     ││
 │   └── Uses: utils, fixtures     ││
 │       (focused on NodePort)     ││
 │                                 ││
-└── test_service_ingress.py ──────┼┤
-    ├── @pytest.mark.ingress      ││
-    └── Uses: utils, fixtures     ││
-        (focused on Ingress)      ││
+├── test_service_ingress.py ──────┼┤
+│   ├── @pytest.mark.ingress      ││
+│   └── Uses: utils, fixtures     ││
+│       (focused on Ingress)      ││
+│                                 ││
+└── test_service_access.py ───────┼┤  (Legacy - kept for
+    └── Uses: utils, fixtures     ││   backward compatibility)
                                   ││
         ┌─────────────────────────┘│
         │  ┌───────────────────────┘
@@ -114,49 +80,64 @@ test_k8s/
     Shared Dependencies
 ```
 
-**Improvements:**
-- ✅ Zero duplicate code
-- ✅ 20+ shared utility functions
+**Key Features:**
+- ✅ Zero duplicate code (shared utilities)
+- ✅ 20+ reusable utility functions
+- ✅ 10+ pytest fixtures for automated setup
 - ✅ Consistent error handling
 - ✅ Clear separation of concerns
 - ✅ Environment-aware timeouts
-- ✅ 10+ reusable pytest fixtures
 - ✅ Comprehensive debugging tools
-- ✅ Better test organization
+- ✅ Custom pytest markers for test categorization
+
+---
+
+## Architecture Evolution
+
+The test suite was refactored from individual test files with duplicated helper functions to a modular architecture with shared utilities and pytest fixtures.
+
+**Previous Issues (now resolved):**
+- Duplicate code (~200 lines across files)
+- No shared utilities
+- Inconsistent error handling  
+- Mixed concerns (NodePort + Ingress in one file)
+- Hardcoded timeouts
+
+**Current Benefits:**
+- Single source of truth for Kubernetes operations
+- DRY principle applied throughout
+- Reusable fixtures reduce boilerplate
+- Focused test files with clear purposes
+- Environment-aware configuration
 
 ---
 
 ## Data Flow Example
 
-### Before: test_liveness_probe.py
+### Test Execution with Fixtures and Utilities
+
 ```
 Test Function
     ↓
-Local run_kubectl() copy
+conftest.py provides fixtures (deployment, service, etc.)
     ↓
-subprocess.run()
+utils.get_deployment() / utils.get_service()
     ↓
-Manual JSON parsing
+Centralized error handling with KubectlError
     ↓
-Manual error handling
+Type-hinted return values (Dict[str, Any])
     ↓
-Hardcoded timeout
+Auto-skip if resource not found (using pytest.skip)
+    ↓
+Environment-aware timeouts (k8s_timeouts fixture)
 ```
 
-### After: test_liveness_probe.py
-```
-Test Function (deployment fixture)
-    ↓
-conftest.py provides deployment resource
-    ↓
-utils.get_deployment()
-    ↓
-Centralized error handling
-    ↓
-Type-hinted return value
-    ↓
-Auto-skip if not found
-```
+**Example Flow:**
+1. Test requests `deployment` fixture
+2. Fixture calls `utils.get_deployment("hello-flask")`
+3. Utility runs kubectl, parses JSON, handles errors
+4. Returns deployment resource or skips test
+5. Test uses resource with confidence (type-safe, validated)
 
 ---
 
@@ -268,24 +249,32 @@ pytest -m "ingress and not slow"
 
 ---
 
-## Benefits Visualization
+## Benefits Summary
 
-```
-         Maintainability
-              ▲
-              │
-        ★★★★★ │
-              │                   After
-        ★★★   │              ┌───────────┐
-              │              │           │
-        ★     │    Before    │           │
-              │  ┌─────┐     │           │
-              └──┴─────┴─────┴───────────┴──→
-                              Debuggability
-```
+The modular architecture provides significant improvements:
 
-**Metrics:**
-- Maintainability: 200% improvement (DRY principle)
-- Debuggability: 300% improvement (fixtures + utils)
-- Organization: 250% improvement (clear structure)
-- Testability: 200% improvement (fixtures + markers)
+| Area | Improvement | Impact |
+|------|-------------|--------|
+| **Code Reuse** | Eliminated ~200 lines of duplication | DRY principle applied |
+| **Maintainability** | Single source of truth for operations | Easy to update/fix |
+| **Debugging** | Fixtures + debug utilities | Faster troubleshooting |
+| **Organization** | Clear separation of concerns | Easier to navigate |
+| **Testability** | Markers enable selective execution | Flexible test runs |
+| **Reliability** | Consistent error handling | Fewer edge cases |
+
+**Key Metrics:**
+- **20+ shared utility functions** - Kubernetes operations centralized
+- **10+ pytest fixtures** - Automated test setup and teardown
+- **4 custom markers** - Test categorization and filtering
+- **0 code duplication** - DRY principle throughout
+- **Environment-aware** - Different behavior for CI vs local
+
+---
+
+## Related Documentation
+
+- **[Test Refactoring](TEST_REFACTORING.md)** - Detailed refactoring history and changes
+- **[Script Integration](SCRIPT_INTEGRATION.md)** - How scripts use pytest markers
+- **[Test Usage Guide](../../test_k8s/README.md)** - Complete test documentation and examples
+- **[Conftest.py](../../test_k8s/conftest.py)** - Fixture and marker definitions
+- **[Utils.py](../../test_k8s/utils.py)** - Shared utility functions

@@ -1,10 +1,25 @@
 # Flask Hello World - Minikube Deployment
 
-This project demonstrates deploying a Flask application to a local Kubernetes cluster using Minikube, with comprehensive testing and CI/CD automation.
+Demonstrate deploying a Flask application to a local Kubernetes cluster using Minikube, with comprehensive testing and CI/CD automation.
 
-Note:     
-Use a python virtual environment for development and testing.
-```
+## Key Takeaways
+
+This project demonstrates production-grade DevOps practices for containerized applications:
+
+| Area | Why It Matters |
+|------|----------------|
+| **Separation of concerns** | App code, infrastructure manifests, and tests live independently, making the codebase modular and maintainable. |
+| **Automated testing** | Tests run at multiple levels (unit tests for Flask, integration tests for Kubernetes) ensuring reliability. |
+| **Reproducibility** | Scripts and Makefile create consistent environments across local development, CI/CD, and cloud deployments. |
+| **CI/CD integration** | GitHub Actions pipeline automates build, deploy, and validation - see [CI/CD Guide](docs/CI_CD_GUIDE.md) for details. |
+| **Cloud-readiness** | The same Kubernetes manifests work for both local Minikube and cloud platforms (EKS, GKE, AKS). |
+
+---
+
+## Quick Start
+
+Note: Use a Python virtual environment for development and testing.
+```bash
 python3 -m venv .venv
 source .venv/bin/activate
 ```
@@ -357,7 +372,7 @@ If `test_service_reachable` fails in GitHub Actions:
    kubectl describe ingress hello-flask-ingress
    ```
 
-For more detailed debugging steps, see [`docs/DEBUGGING_CI_CD.md`](docs/DEBUGGING_CI_CD.md).
+For more detailed debugging steps, see [`docs/INGRESS_CI_CD_TROUBLESHOOTING.md`](docs/INGRESS_CI_CD_TROUBLESHOOTING.md).
 
 # Automation Scripts
 
@@ -395,12 +410,20 @@ bash scripts/liveness_test.sh --config  # Config check only
 ## Makefile Shortcuts
 
 ```bash
+# Build & Deploy
 make build           # Build Docker image
 make deploy          # Deploy to cluster
+make delete          # Cleanup
+
+# Testing
 make unit-tests      # Run unit tests
 make k8s-tests       # Run K8s tests
 make smoke-test      # Quick validation
-make delete          # Cleanup
+
+# Validation (before push)
+make validate-repo      # Check repository structure
+make validate-workflow  # Check GitHub Actions config
+make validate-all       # Run all validations
 
 # Composite targets
 make test-all        # Run all tests
@@ -446,13 +469,17 @@ The test suite uses:
 Comprehensive documentation is available in the [`docs/`](docs/) directory:
 
 - **[Documentation Index](docs/README.md)** - Complete documentation overview
+- **CI/CD & Automation:**
+  - [CI/CD Guide](docs/CI_CD_GUIDE.md) - Pipeline overview, GitHub CLI usage, manual testing
+  - [CI/CD Troubleshooting](docs/INGRESS_CI_CD_TROUBLESHOOTING.md) - Ingress and pipeline debugging
+  - [Scripts Guide](scripts/README.md) - Automation scripts and service access
 - **Test Suite:**
   - [Test Architecture](docs/testing/TEST_ARCHITECTURE.md) - Test design and utilities
   - [Test Refactoring](docs/testing/TEST_REFACTORING.md) - Recent improvements
   - [Test Usage Guide](test_k8s/README.md) - How to run tests
 - **Scripts:**
-  - [Script Updates](docs/scripts/SCRIPT_UPDATES.md) - Bash script changes
+  - [Scripts Guide](scripts/README.md) - Complete script reference and usage
+  - [Script Integration](docs/testing/SCRIPT_INTEGRATION.md) - Script integration with pytest markers
 - **Operations:**
-  - [CI/CD Debugging](docs/DEBUGGING_CI_CD.md) - Pipeline troubleshooting
-  - [Ingress Guide](docs/INGRESS_404_EXPLAINED.md) - Ingress issues
-  - [Minikube Guide](docs/MINIKUBE_SERVICE_URL_FIX.md) - Service access
+  - [Ingress Guide](docs/INGRESS_404_EXPLAINED.md) - Ingress issues and troubleshooting
+  - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Pre-push validation and best practices

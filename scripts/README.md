@@ -178,11 +178,36 @@ bash scripts/port_forward.sh
 
 **What it does:**
 - Auto-detects service type (NodePort or ClusterIP)
-- Provides appropriate access instructions
-- For NodePort: Shows `minikube service` URL
-- For ClusterIP+Ingress: Shows Ingress URL and curl command
+- Provides appropriate access instructions and tests connectivity
+- For NodePort: Shows `minikube service` URL and tests the service
+- For ClusterIP+Ingress: Shows multiple access methods (hostname, IP+Host header, port-forward)
+- Tests connectivity intelligently (tries hostname first, falls back to IP if needed)
 
 **Usage:**
+```bash
+bash scripts/minikube_service_url.sh
+# or
+make minikube-url
+```
+
+**Output examples:**
+
+For ClusterIP with Ingress:
+```
+[INFO] Service type: ClusterIP
+[INFO] Ingress hostname: hello-flask.local
+Access via: http://hello-flask.local
+  or: curl -H "Host: hello-flask.local" http://192.168.49.2
+[SUCCESS] App is accessible
+```
+
+For NodePort:
+```
+[INFO] Service type: NodePort
+[INFO] Access your app at: http://192.168.49.2:30123
+```
+
+**When to run:** When you need to know how to access the deployed service
 ```bash
 bash scripts/minikube_service_url.sh
 ```
@@ -353,6 +378,17 @@ make port-forward    # Forward service port to localhost (runs port_forward.sh)
 make minikube-url    # Get service URL and access methods (runs minikube_service_url.sh)
 ```
 
+### Validation Targets
+
+**Pre-Push Validation:**
+```bash
+make validate-repo      # Validate repository structure (runs validate_repo_structure.sh)
+make validate-workflow  # Validate GitHub Actions workflow (runs validate_workflow.sh)
+make validate-all       # Run all validation checks (both scripts)
+```
+
+See [Development Workflow](../docs/DEVELOPMENT_WORKFLOW.md) for detailed validation documentation.
+
 ### Changelog Targets
 
 ```bash
@@ -387,6 +423,9 @@ make test-all        # Run both unit and k8s tests
 | `smoke-test` | `smoke_test.sh` | Run smoke tests |
 | `port-forward` | `port_forward.sh` | Forward service port |
 | `minikube-url` | `minikube_service_url.sh` | Get service URL |
+| `validate-repo` | `validate_repo_structure.sh` | Validate repository structure |
+| `validate-workflow` | `validate_workflow.sh` | Validate GitHub Actions workflow |
+| `validate-all` | Composite | Run all validation checks |
 | `changelog` | `generate_changelog.sh` | Generate changelog |
 | `test-all` | Composite | Run unit + k8s tests |
 | `full-deploy` | Composite | Build + deploy + smoke test |

@@ -32,6 +32,15 @@ smoke-test:
 unit-tests:
 	@bash scripts/unit_tests.sh
 
+# Validation targets
+validate-repo:
+	@bash scripts/validate_repo_structure.sh
+
+validate-workflow:
+	@bash scripts/validate_workflow.sh
+
+validate-all: validate-repo validate-workflow
+
 # Changelog generation
 changelog:
 	@bash scripts/generate_changelog.sh
@@ -90,6 +99,9 @@ help:
 	@echo "  smoke-test    - Run smoke tests"
 	@echo "  port-forward  - Forward service port to localhost"
 	@echo "  minikube-url  - Get service URL and access methods"
+	@echo "  validate-repo     - Validate repository structure"
+	@echo "  validate-workflow - Validate GitHub Actions workflow configuration"
+	@echo "  validate-all      - Run all validation checks"
 	@echo "  changelog     - Generate changelog from all commits"
 	@echo "  changelog-since TAG=v1.0.0 - Generate changelog since a specific tag"
 	@echo "  changelog-range FROM=v1.0.0 TO=v2.0.0 - Generate changelog between tags"

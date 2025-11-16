@@ -32,10 +32,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 #### Documentation
 - **`docs/INGRESS_404_EXPLAINED.md`** - Visual guide explaining nginx routing and Host headers
-- **`docs/CI_CD_FIX_SUMMARY.md`** - CI/CD test fixes and Host header handling
+- **`docs/INGRESS_CI_CD_TROUBLESHOOTING.md`** - CI/CD test fixes and Host header handling
 - **`docs/DEBUGGING_CI_CD.md`** - Comprehensive debugging guide for pipeline issues
-- **`docs/README_CURL_FIX.md`** - Documentation fixes for curl commands
-- **`docs/MINIKUBE_SERVICE_URL_FIX.md`** - Script update documentation
 
 ### Changed
 

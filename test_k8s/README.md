@@ -30,13 +30,16 @@ pytest test_k8s/test_deployment.py -v
 
 ---
 
-#### `test_configmap.py` - ConfigMap Environment Variables
-**Purpose:** Verifies that environment variables from ConfigMap are correctly injected into pods.
+#### `test_configmap.py` - ConfigMap Configuration Validation
+**Purpose:** Verifies that ConfigMap is properly configured and injected into pods.
 
 **What it tests:**
-- ✅ ConfigMap exists (`hello-flask-config`)
+- ✅ ConfigMap resource exists in cluster (`hello-config`)
+- ✅ ConfigMap has correct keys (`APP_ENV`, `LOG_LEVEL`)
+- ✅ ConfigMap values are correct (`APP_ENV=local`, `LOG_LEVEL=debug`)
+- ✅ Deployment references ConfigMap correctly (via `envFrom`)
 - ✅ Environment variables are accessible inside pods
-- ✅ Variables have correct values (`APP_ENV=production`, `LOG_LEVEL=info`)
+- ✅ All ConfigMap values are injected into pods
 
 **Markers:** None (runs automatically)
 
@@ -46,6 +49,52 @@ pytest test_k8s/test_deployment.py -v
 ```bash
 pytest test_k8s/test_configmap.py -v
 ```
+
+---
+
+#### `test_secret.py` - Secret Configuration Validation
+**Purpose:** Verifies that Secret is properly configured, base64-encoded, and injected into pods.
+
+**What it tests:**
+- ✅ Secret resource exists in cluster (`hello-secrets`)
+- ✅ Secret has correct keys (`API_KEY`, `DB_PASSWORD`)
+- ✅ Secret values are properly base64-encoded
+- ✅ Secret values decode to expected plaintext
+- ✅ Deployment references Secret correctly (via `envFrom`)
+- ✅ Environment variables from Secret are accessible inside pods (decoded)
+- ✅ All Secret values are injected into pods with correct decoded values
+
+**Markers:** None (runs automatically)
+
+**When to run:** After deploying Secret, to verify secure configuration injection
+
+**Example:**
+```bash
+pytest test_k8s/test_secret.py -v
+```
+
+---
+
+#### `test_app_config.py` - Application Configuration Behavior
+**Purpose:** Verifies that the application can access and use configuration from environment variables.
+
+**What it tests:**
+- ✅ Pods have all expected configuration environment variables available
+- ✅ Variables from ConfigMap are accessible (`APP_ENV`, `LOG_LEVEL`)
+- ✅ Variables from Secret are accessible (`API_KEY`, `DB_PASSWORD`)
+- ✅ Variables from deployment env are accessible (`CUSTOM_MESSAGE`)
+- ⚠️ App behavior changes based on config (skipped if app doesn't expose `/env` endpoint)
+
+**Markers:** `@pytest.mark.ingress` (for HTTP endpoint tests)
+
+**When to run:** To verify end-to-end configuration flow from K8s resources to application
+
+**Example:**
+```bash
+pytest test_k8s/test_app_config.py -v
+```
+
+**Note:** One test is skipped if the app doesn't expose an `/env` endpoint for introspection.
 
 ---
 

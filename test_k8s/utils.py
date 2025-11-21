@@ -484,3 +484,70 @@ def print_debug_info(label_selector: str = "app=hello-flask", namespace: str = "
         print(f"  Error getting service: {e}")
     
     print("="*60 + "\n")
+
+
+def get_configmap(name: str, namespace: str = "default") -> Optional[Dict[str, Any]]:
+    """
+    Get a ConfigMap by name.
+    
+    Args:
+        name: Name of the ConfigMap
+        namespace: Kubernetes namespace (default: "default")
+        
+    Returns:
+        ConfigMap dictionary or None if not found
+        
+    Raises:
+        KubectlError: If kubectl command fails for reasons other than not found
+        
+    Example:
+        configmap = get_configmap("hello-config")
+        if configmap:
+            data = configmap.get("data", {})
+            print(f"APP_ENV: {data.get('APP_ENV')}")
+    """
+    result = run_kubectl(
+        "get", "configmap", name,
+        "-n", namespace,
+        "-o", "json",
+        check=False
+    )
+    
+    if result.returncode != 0:
+        return None
+    
+    return json.loads(result.stdout)
+
+
+def get_secret(name: str, namespace: str = "default") -> Optional[Dict[str, Any]]:
+    """
+    Get a Secret by name.
+    
+    Args:
+        name: Name of the Secret
+        namespace: Kubernetes namespace (default: "default")
+        
+    Returns:
+        Secret dictionary or None if not found
+        
+    Raises:
+        KubectlError: If kubectl command fails for reasons other than not found
+        
+    Example:
+        secret = get_secret("hello-secrets")
+        if secret:
+            data = secret.get("data", {})
+            # Note: Secret data is base64-encoded
+            print(f"Keys: {list(data.keys())}")
+    """
+    result = run_kubectl(
+        "get", "secret", name,
+        "-n", namespace,
+        "-o", "json",
+        check=False
+    )
+    
+    if result.returncode != 0:
+        return None
+    
+    return json.loads(result.stdout)

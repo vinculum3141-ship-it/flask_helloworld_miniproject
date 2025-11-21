@@ -45,7 +45,7 @@ Also, ensure Python packages for testing are installed:
 pip install -r app/requirements.txt
 
 # Install testing dependencies
-pip install pytest requests
+pip install pytest requests yamllint
 ```
 
 **Required packages:**
@@ -440,19 +440,30 @@ make help            # Show all commands
 ### Quick Test Commands
 
 ```bash
-# Run all automated tests (excludes manual tests)
+# Run all automated tests (excludes manual and educational tests)
+pytest test_k8s/ -v -m 'not manual and not educational'
+
+# Run all automated tests (includes educational tests)
 pytest test_k8s/ -v -m 'not manual'
 
 # Run specific test categories
-pytest test_k8s/ -v -m ingress     # Ingress tests only
-pytest test_k8s/ -v -m nodeport    # NodePort tests only
-pytest test_k8s/ -v -m manual      # Manual tests (slow, timing-dependent)
+pytest test_k8s/ -v -m ingress        # Ingress tests only
+pytest test_k8s/ -v -m educational    # Educational tests only (hostname routing, consistency, load balancing)
+pytest test_k8s/ -v -m nodeport       # NodePort tests only
+pytest test_k8s/ -v -m manual         # Manual tests (slow, timing-dependent)
 
 # Run specific test file
 pytest test_k8s/test_deployment.py -v
 
 # Simulate CI/CD environment (uses Minikube IP + Host header)
 CI=true pytest test_k8s/test_service_ingress.py -v -s
+```
+
+**Or use Makefile shortcuts:**
+```bash
+make k8s-tests           # All automated K8s tests (includes educational)
+make educational-tests   # Educational Ingress tests only
+make ingress-tests       # All Ingress tests (basic + educational)
 ```
 
 ### Test Organization
@@ -477,6 +488,8 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory:
   - [Test Architecture](docs/testing/TEST_ARCHITECTURE.md) - Test design and utilities
   - [Test Refactoring](docs/testing/TEST_REFACTORING.md) - Recent improvements
   - [Test Usage Guide](test_k8s/README.md) - How to run tests
+  - [Educational Tests](docs/EDUCATIONAL_TESTS.md) - Learn Ingress concepts through hands-on testing
+  - [Educational Tests Quick Reference](docs/EDUCATIONAL_TESTS_QUICKREF.md) - Quick commands
 - **Scripts:**
   - [Scripts Guide](scripts/README.md) - Complete script reference and usage
   - [Script Integration](docs/testing/SCRIPT_INTEGRATION.md) - Script integration with pytest markers

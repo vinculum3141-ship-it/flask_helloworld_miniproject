@@ -354,9 +354,11 @@ make delete          # Delete local deployment (runs delete_local.sh)
 
 **Individual Test Targets:**
 ```bash
-make unit-tests      # Run unit tests (runs unit_tests.sh)
-make k8s-tests       # Run K8s integration tests (runs k8s_tests.sh)
-make smoke-test      # Run smoke tests - quick validation (runs smoke_test.sh)
+make unit-tests           # Run unit tests (runs unit_tests.sh)
+make k8s-tests            # Run K8s integration tests (runs k8s_tests.sh)
+make educational-tests    # Run educational Ingress tests only
+make ingress-tests        # Run all Ingress tests (basic + educational)
+make smoke-test           # Run smoke tests - quick validation (runs smoke_test.sh)
 ```
 
 **Liveness Test Variations:**
@@ -417,6 +419,8 @@ make test-all        # Run both unit and k8s tests
 | `delete` | `delete_local.sh` | Delete local deployment |
 | `unit-tests` | `unit_tests.sh` | Run unit tests |
 | `k8s-tests` | `k8s_tests.sh` | Run K8s integration tests |
+| `educational-tests` | `pytest -m educational` | Run educational Ingress tests |
+| `ingress-tests` | `pytest -m ingress` | Run all Ingress tests |
 | `liveness-test` | `liveness_test.sh` | Run automated liveness tests |
 | `liveness-test-manual` | `liveness_test.sh --manual` | Run manual behavioral tests |
 | `liveness-test-config` | `liveness_test.sh --config` | Run config check only |

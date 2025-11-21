@@ -248,6 +248,63 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 
 ---
 
+### Educational Tests
+
+#### Educational Ingress Tests (`test_service_ingress.py`)
+**Purpose:** Demonstrate advanced Ingress concepts through hands-on testing.
+
+These tests go beyond basic functionality to teach how Ingress works internally.
+
+**What it teaches:**
+
+- 📚 **Hostname-Based Routing** (`test_hostname_routing_rejects_wrong_host`)
+  - Shows that Ingress routes based on HTTP Host header, not URL
+  - Correct Host header (`hello-flask.local`) → 200 OK
+  - Wrong Host header (`wrong-hostname.local`) → 404 Not Found
+  - IP as Host header (Minikube IP) → 404 Not Found
+  - **Learning:** Ingress is a Layer 7 (HTTP) router, not Layer 4 (TCP)
+
+- 📚 **Response Consistency** (`test_response_consistency_ingress_vs_direct`)
+  - Compares responses via Ingress vs direct service access (port-forward)
+  - Validates that Ingress proxies without modifying responses
+  - Both access methods return identical JSON responses
+  - **Learning:** Ingress acts as a transparent proxy/router
+
+- 📚 **Load Balancing** (`test_ingress_load_balancing`)
+  - Makes multiple requests through Ingress to observe distribution
+  - Checks pod logs to verify multiple pods receive traffic
+  - Shows how Service load balances across pod replicas
+  - **Learning:** Ingress → Service → Pods (load balancing happens at Service layer)
+
+**Markers:** `@pytest.mark.ingress`, `@pytest.mark.educational`
+
+**When to run:** For learning and demonstration purposes
+
+**Examples:**
+```bash
+# Run all educational tests
+pytest test_k8s/ -m educational -v -s
+
+# Run specific educational test
+pytest test_k8s/test_service_ingress.py::test_hostname_routing_rejects_wrong_host -v -s
+
+# Run all Ingress tests (including educational)
+pytest test_k8s/ -m ingress -v -s
+```
+
+**Why these tests are educational:**
+- 🎓 They explain **WHY** things work, not just **IF** they work
+- 🔍 They demonstrate underlying mechanisms (Host headers, proxying, load balancing)
+- 💡 They include explanatory output messages during execution
+- 📖 They're tagged separately so they can be run on-demand for learning
+
+**Note:** These tests may take longer than basic validation tests (~30-60 seconds) because they:
+- Use port-forward (2-3 second setup time)
+- Make multiple HTTP requests (20+ for load balancing test)
+- Check pod logs to observe traffic distribution
+
+---
+
 ## Test Summary Table
 
 | Test File | Purpose | Markers | Auto/Manual | Duration |
@@ -257,13 +314,33 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 | `test_secret.py` | Secret validation (6 tests) | - | Auto | Fast (~1s) |
 | `test_app_config.py` | App config availability (2 tests) | `ingress` | Auto | Medium (~6s) |
 | `test_service_nodeport.py` | NodePort service access | `nodeport` | Auto | Medium (~5s) |
-| `test_service_ingress.py` | Ingress service access | `ingress` | Auto | Medium (~5s) |
+| `test_service_ingress.py` | Ingress service access (3 basic) | `ingress` | Auto | Medium (~5s) |
+| `test_service_ingress.py` | Educational Ingress tests (3 tests) | `ingress`, `educational` | On-demand | Slow (~30-60s) |
 | `test_ingress.py` | Ingress resource config | `ingress` | Auto | Fast (~2s) |
 | `test_liveness_probe.py` | Probe configuration | - | Auto | Fast (~2s) |
 | `test_crash_recovery_manual.py` | Self-healing behavior | `manual`, `slow` | Manual | Slow (~60-90s) |
 
-**Total automated test time:** ~20-25 seconds (includes 13 new config tests)  
-**Total manual test time:** ~60-90 seconds
+**Total automated test time:** ~20-25 seconds (excludes educational and manual tests)  
+**Total educational test time:** ~30-60 seconds (run with `-m educational`)  
+**Total manual test time:** ~60-90 seconds (run with `-m manual`)
+
+**Marker Usage:**
+```bash
+# Run only automated tests (default)
+pytest test_k8s/ -v
+
+# Run only educational tests
+pytest test_k8s/ -m educational -v -s
+
+# Run only manual tests
+pytest test_k8s/ -m manual -v -s
+
+# Run Ingress tests (basic + educational)
+pytest test_k8s/ -m ingress -v
+
+# Run everything including manual and educational
+pytest test_k8s/ -v -s -m ""
+```
 
 ---
 

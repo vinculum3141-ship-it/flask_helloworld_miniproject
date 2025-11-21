@@ -32,6 +32,16 @@ smoke-test:
 unit-tests:
 	@bash scripts/unit_tests.sh
 
+# Educational tests (Ingress concepts)
+educational-tests:
+	@echo "Running educational Ingress tests..."
+	@pytest test_k8s/ -m educational -v -s
+
+# All Ingress tests (basic + educational)
+ingress-tests:
+	@echo "Running all Ingress tests (basic + educational)..."
+	@pytest test_k8s/ -m ingress -v -s
+
 # Validation targets
 validate-repo:
 	@bash scripts/validate_repo_structure.sh
@@ -86,19 +96,31 @@ full-deploy: build deploy smoke-test
 # Help target to show available commands
 help:
 	@echo "Available targets:"
+	@echo ""
+	@echo "Build & Deploy:"
 	@echo "  build         - Build Docker image"
 	@echo "  deploy        - Deploy to local cluster"
 	@echo "  delete        - Delete local deployment"
-	@echo "  test          - Run k8s tests"
-	@echo "  unit-tests    - Run unit tests"
-	@echo "  k8s-tests     - Run k8s integration tests"
+	@echo "  full-deploy   - Build, deploy, and run smoke tests"
+	@echo ""
+	@echo "Testing:"
+	@echo "  unit-tests           - Run unit tests"
+	@echo "  k8s-tests            - Run k8s integration tests (excludes manual & educational)"
+	@echo "  educational-tests    - Run educational Ingress tests (hostname routing, consistency, load balancing)"
+	@echo "  ingress-tests        - Run all Ingress tests (basic + educational)"
+	@echo "  smoke-test           - Run smoke tests (quick validation)"
+	@echo "  test-all             - Run all automated tests (unit + k8s)"
+	@echo ""
+	@echo "Liveness Probe Tests:"
 	@echo "  liveness-test        - Run automated liveness probe configuration tests"
 	@echo "  liveness-test-manual - Run manual behavioral tests (pod deletion, crash recovery)"
 	@echo "  liveness-test-config - Run only liveness probe configuration check"
-	@echo "  test-all      - Run all tests"
-	@echo "  smoke-test    - Run smoke tests"
+	@echo ""
+	@echo "Utilities:"
 	@echo "  port-forward  - Forward service port to localhost"
 	@echo "  minikube-url  - Get service URL and access methods"
+	@echo ""
+	@echo "Validation:"
 	@echo "  validate-repo     - Validate repository structure"
 	@echo "  validate-workflow - Validate GitHub Actions workflow configuration"
 	@echo "  validate-all      - Run all validation checks"

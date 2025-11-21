@@ -407,7 +407,7 @@ The local validation scripts check the same things that the CI/CD pipeline valid
 
 - **[CI/CD Guide](CI_CD_GUIDE.md)** - Complete pipeline reference
 - **[Scripts Guide](../scripts/README.md)** - All automation scripts
-- **[Test Architecture](testing/TEST_ARCHITECTURE.md)** - Test suite design
+- **[Test Architecture](../testing/architecture/TEST_ARCHITECTURE.md)** - Test suite design
 - **[Main README](../README.md)** - Project overview
 
 ---

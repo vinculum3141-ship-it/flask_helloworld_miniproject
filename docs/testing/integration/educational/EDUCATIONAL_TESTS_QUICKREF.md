@@ -46,9 +46,9 @@ pytest test_k8s/ -m "ingress and not educational" -v
 
 ## 📚 Documentation
 
-**Full Guide:** `docs/EDUCATIONAL_TESTS.md`  
+**Full Guide:** [EDUCATIONAL_TESTS_GUIDE.md](EDUCATIONAL_TESTS_GUIDE.md)  
 **Test README:** `test_k8s/README.md` (Educational Tests section)  
-**Summary:** `EDUCATIONAL_TESTS_SUMMARY.md`
+**Quick Reference:** This document
 
 ---
 

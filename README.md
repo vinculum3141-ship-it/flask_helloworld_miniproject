@@ -161,7 +161,21 @@ echo -n "somesecretkey" | base64
 
 ## Test Liveness Probe (Self-Healing)
 
-The deployment includes a liveness probe that monitors the health of each pod. If a pod becomes unhealthy or crashes, Kubernetes automatically restarts the container. You can manually test this self-healing behavior:
+The deployment includes **liveness** and **readiness** probes that work together to provide self-healing and intelligent traffic routing.
+
+### Understanding the Probes
+
+| Probe | Purpose | Failure Action | Config |
+|-------|---------|----------------|--------|
+| **Liveness** | "Is the app alive?" | **Restart container** 🔄 | 10s delay, check every 10s |
+| **Readiness** | "Ready for traffic?" | Remove from Service (no restart) | 2s delay, check every 5s |
+
+**How they work together:**
+- **Readiness probe** removes unhealthy pods from traffic (non-destructive, fast detection)
+- **Liveness probe** restarts crashed/deadlocked containers (destructive but healing)
+- **Result:** Self-healing with zero downtime (when using 2+ replicas)
+
+You can manually test this self-healing behavior:
 
 ### Method 1: Delete a Pod (Recommended)
 Watch Kubernetes automatically recreate the deleted pod to maintain the desired replica count:
@@ -177,9 +191,13 @@ kubectl delete pod <pod-name>
 
 **What you'll see:**
 - The deleted pod enters `Terminating` state
+- **Readiness probe** marks it NOT READY → removed from Service endpoints
 - Kubernetes immediately creates a new pod to maintain 2 replicas
 - The new pod goes through: `ContainerCreating` → `Running`
+- **Readiness probe** passes → new pod marked READY → receives traffic
 - Total time: typically 5-10 seconds
+
+**Why this works:** The ReplicaSet controller watches the desired state (2 replicas) and automatically creates new pods when needed.
 
 ### Method 2: Simulate App Crash
 Simulate an application crash by killing the Flask process inside the container:
@@ -200,18 +218,37 @@ kubectl exec $POD -- bash -c "kill -9 1"
 
 **What you'll see:**
 - The container immediately terminates
-- The liveness probe detects the app is not responding on port 5000
-- After 3 consecutive failed checks (with current settings: up to 55-65 seconds), Kubernetes restarts the container
-- Pod shows `RESTARTS` count incremented
+- **Readiness probe** fails → Pod marked NOT READY → removed from Service (no traffic)
+- **Liveness probe** detects the app is not responding on port 5000
+- After 3 consecutive failed checks (~30 seconds total), Kubernetes restarts the container
+- Pod shows `RESTARTS` count incremented (0 → 1)
+- **Readiness probe** passes → Pod marked READY → receives traffic again
 - The pod stays in `Running` state (container restart, not pod recreation)
 
-**Why does it take so long?**
-With the current liveness probe settings:
-- `periodSeconds: 10` - Checks every 10 seconds
-- `timeoutSeconds: 5` - Waits 5 seconds for response
-- `failureThreshold: 3` - Needs 3 consecutive failures
+**Timeline:**
+```
+t=0s:   Kill process
+t=0s:   Readiness fails → Pod NOT READY (no traffic to this pod)
+t=10s:  Liveness check 1 → Failed (1/3)
+t=20s:  Liveness check 2 → Failed (2/3)
+t=30s:  Liveness check 3 → Failed (3/3) → Container restarted
+t=32s:  Readiness passes → Pod READY → Traffic resumes
+```
 
-Time calculation: Initial check (0-10s) + (timeout 5s + period 10s) × 3 failures = up to 55-65 seconds total
+**Why does it take ~30 seconds?**
+With the current liveness probe settings:
+- `initialDelaySeconds: 10` - Waits 10s after container starts before first check
+- `periodSeconds: 10` - Checks every 10 seconds
+- `failureThreshold: 3` - Needs 3 consecutive failures before restart
+
+**Time to restart after crash:**
+- First check fails immediately (app is crashed)
+- Wait 10s → Second check fails (1/3 failures counted from when checking starts)
+- Wait 10s → Third check fails (2/3)
+- Wait 10s → Fourth check fails (3/3) → **Restart triggered**
+- **Total:** ~30 seconds from first check failure (10s × 3 failures)
+
+**Note:** The readiness probe (checks every 5s) detects the failure faster and removes the pod from traffic immediately, ensuring no requests are sent to the crashed pod.
 
 **Alternative - More visible crash simulation:**
 To see a more gradual failure and recovery, you can crash Python instead:
@@ -221,35 +258,65 @@ kubectl exec $POD -- bash -c "pkill -9 python"
 kubectl exec $POD -- bash -c "python -c 'import os; os._exit(1)'"
 ```
 
-### Verify Liveness Probe Configuration
-Check the liveness probe settings in your running pod:
+### Verify Probe Configuration
+
+Check both liveness and readiness probe settings in your running pod:
 
 ```bash
-kubectl describe pod <pod-name> | grep -A 10 "Liveness:"
+kubectl describe pod <pod-name> | grep -A 10 "Liveness:\|Readiness:"
 ```
 
 **Expected output:**
 ```
-Liveness:       http-get http://:5000/ delay=10s timeout=5s period=10s #success=1 #failure=3
+Liveness:   http-get http://:5000/health delay=10s timeout=5s period=10s #success=1 #failure=3
+Readiness:  http-get http://:5000/ delay=2s timeout=1s period=5s #success=1 #failure=3
 ```
 
-This means:
-- **Initial delay:** 10 seconds after container starts
-- **Check interval:** Every 10 seconds
-- **Timeout:** 5 seconds per check
-- **Failure threshold:** Restart after 3 consecutive failures
+**What this means:**
 
-### Check Pod Events for Liveness Failures
-If you simulated a crash, you can see the liveness probe failures in the pod events:
+| Probe | Initial Delay | Check Frequency | Timeout | Failure Threshold |
+|-------|---------------|-----------------|---------|-------------------|
+| **Liveness** | 10 seconds | Every 10s | 5s | 3 failures → restart |
+| **Readiness** | 2 seconds | Every 5s | 1s | 3 failures → remove from service |
+
+**Key differences:**
+- Readiness starts checking sooner (2s vs 10s) - fast traffic control
+- Readiness checks more frequently (5s vs 10s) - quicker issue detection
+- Liveness is more tolerant (5s timeout vs 1s) - avoid unnecessary restarts
+
+### Check Pod Events for Probe Failures
+
+If you simulated a crash, you can see both probe failures in the pod events:
 
 ```bash
 kubectl describe pod <pod-name> | grep -A 20 "Events:"
 ```
 
 Look for events like:
-- `Unhealthy`: Liveness probe failed
-- `Killing`: Container being killed
+- `Unhealthy` (Readiness): Readiness probe failed - pod removed from Service
+- `Unhealthy` (Liveness): Liveness probe failed - container will be restarted
+- `Killing`: Container being killed due to liveness failure
 - `Started`: Container restarted successfully
+
+**Example event sequence:**
+```
+Readiness probe failed: Get "http://10.244.0.5:5000/": dial tcp: connection refused
+Liveness probe failed: Get "http://10.244.0.5:5000/": dial tcp: connection refused
+Killing container with id docker://hello-flask
+Pulled container image "hello-flask:latest"
+Created container hello-flask
+Started container hello-flask
+```
+
+### Learn More About Probes
+
+For a comprehensive understanding of how liveness and readiness probes work, including:
+- Detailed configuration parameters
+- Visual timelines of probe behavior
+- Troubleshooting guide
+- Best practices
+
+See: **[docs/PROBES_GUIDE.md](docs/PROBES_GUIDE.md)** 📚
 
 ## Run Tests
 
@@ -490,9 +557,11 @@ Comprehensive documentation is available in the [`docs/`](docs/) directory:
   - [Test Usage Guide](test_k8s/README.md) - How to run tests
   - [Educational Tests](docs/EDUCATIONAL_TESTS.md) - Learn Ingress concepts through hands-on testing
   - [Educational Tests Quick Reference](docs/EDUCATIONAL_TESTS_QUICKREF.md) - Quick commands
+- **Kubernetes & Health:**
+  - [Probes Guide](docs/PROBES_GUIDE.md) - Comprehensive liveness and readiness probe guide
+  - [Ingress Guide](docs/INGRESS_404_EXPLAINED.md) - Ingress issues and troubleshooting
 - **Scripts:**
   - [Scripts Guide](scripts/README.md) - Complete script reference and usage
   - [Script Integration](docs/testing/SCRIPT_INTEGRATION.md) - Script integration with pytest markers
 - **Operations:**
-  - [Ingress Guide](docs/INGRESS_404_EXPLAINED.md) - Ingress issues and troubleshooting
   - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Pre-push validation and best practices

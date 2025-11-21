@@ -397,7 +397,7 @@ This is expected behavior for security reasons.
 **Solution**: 
 - Check pod logs: `kubectl logs -l app=hello-flask`
 - Check events: `kubectl get events --sort-by='.lastTimestamp'`
-- See [CI/CD Troubleshooting Guide](INGRESS_CI_CD_TROUBLESHOOTING.md)
+- See [Ingress Guide](ingress/INGRESS_GUIDE.md)
 
 #### 3. **Ingress Not Getting Address**
 
@@ -405,7 +405,7 @@ This is expected behavior for security reasons.
 
 **Solution**:
 - Verify Ingress controller is running: `kubectl get pods -n ingress-nginx`
-- See [Ingress Troubleshooting](INGRESS_404_EXPLAINED.md)
+- See [Ingress Guide](ingress/INGRESS_GUIDE.md)
 
 #### 4. **Test Failures**
 
@@ -418,10 +418,9 @@ This is expected behavior for security reasons.
 
 ### Additional Resources
 
-- **[CI/CD Troubleshooting Guide](INGRESS_CI_CD_TROUBLESHOOTING.md)** - Ingress and pipeline debugging
-- **[Scripts Documentation](../scripts/README.md)** - Script usage and troubleshooting
-- **[Test Architecture](testing/TEST_ARCHITECTURE.md)** - Test suite details
-- **[Ingress Guide](INGRESS_404_EXPLAINED.md)** - Ingress-specific issues
+- **[Ingress Guide](ingress/INGRESS_GUIDE.md)** - Complete Ingress troubleshooting and CI/CD integration
+- **[Scripts Documentation](../../scripts/README.md)** - Script usage and troubleshooting
+- **[Test Architecture](../testing/architecture/TEST_ARCHITECTURE.md)** - Test suite details
 
 ---
 

@@ -253,14 +253,16 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 | Test File | Purpose | Markers | Auto/Manual | Duration |
 |-----------|---------|---------|-------------|----------|
 | `test_deployment.py` | Pod status verification | - | Auto | Fast (~2s) |
-| `test_configmap.py` | ConfigMap environment vars | - | Auto | Fast (~3s) |
+| `test_configmap.py` | ConfigMap validation (5 tests) | - | Auto | Fast (~2s) |
+| `test_secret.py` | Secret validation (6 tests) | - | Auto | Fast (~1s) |
+| `test_app_config.py` | App config availability (2 tests) | `ingress` | Auto | Medium (~6s) |
 | `test_service_nodeport.py` | NodePort service access | `nodeport` | Auto | Medium (~5s) |
 | `test_service_ingress.py` | Ingress service access | `ingress` | Auto | Medium (~5s) |
 | `test_ingress.py` | Ingress resource config | `ingress` | Auto | Fast (~2s) |
 | `test_liveness_probe.py` | Probe configuration | - | Auto | Fast (~2s) |
 | `test_crash_recovery_manual.py` | Self-healing behavior | `manual`, `slow` | Manual | Slow (~60-90s) |
 
-**Total automated test time:** ~15-20 seconds  
+**Total automated test time:** ~20-25 seconds (includes 13 new config tests)  
 **Total manual test time:** ~60-90 seconds
 
 ---
@@ -272,22 +274,37 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 **Purpose**: Centralize common helper functions to eliminate code duplication.
 
 **Key Functions**:
+
+**kubectl Operations:**
 - `run_kubectl()` - Execute kubectl commands with consistent error handling
+
+**Pod Operations:**
 - `get_pods()` - Retrieve pods by label selector
+- `get_pod_by_name()` - Get specific pod by name
 - `get_pod_restart_count()` - Get restart count for a pod
 - `get_running_pods()` - Get only running and ready pods
 - `wait_for_pods_ready()` - Wait for specific number of pods to be ready
-- `get_deployment()`, `get_service()`, `get_ingress()` - Resource retrieval
 - `exec_in_pod()` - Execute commands inside pods
 - `delete_pod()` - Delete a pod
-- `print_debug_info()` - Print comprehensive debugging information
+
+**Resource Operations:**
+- `get_deployment()` - Retrieve deployment by name
+- `get_service()` - Retrieve service by name
+- `get_ingress()` - Retrieve ingress by name
+- `get_configmap()` - Retrieve ConfigMap by name
+- `get_secret()` - Retrieve Secret by name
+- `deployment_references_resource()` - Check if deployment references ConfigMap/Secret via envFrom
+
+**Environment & Debugging:**
 - `is_ci_environment()` - Detect CI/CD environment
+- `print_debug_info()` - Print comprehensive debugging information
 - `get_minikube_ip()`, `get_service_url()` - Minikube utilities
 
 **Benefits**:
 - Single source of truth for kubectl operations
 - Consistent error handling across all tests
 - Better type hints and documentation
+- Reusable deployment reference checking logic
 - Easier to maintain and extend
 
 ### 2. Pytest Configuration (`conftest.py`)
@@ -295,8 +312,27 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 **Purpose**: Provide reusable fixtures and test configuration.
 
 **Key Fixtures**:
-- `deployment`, `service`, `ingress` - Auto-retrieve Kubernetes resources
-- `pods`, `running_pods` - Get current pod state
+
+**Resource Name Fixtures:**
+- `deployment_name` - Returns "hello-flask" deployment name
+- `service_name` - Returns "hello-flask" service name  
+- `ingress_name` - Returns "hello-flask-ingress" ingress name
+- `configmap_name` - Returns "hello-config" ConfigMap name
+- `secret_name` - Returns "hello-secrets" Secret name
+- `label_selector` - Returns "app=hello-flask" label selector
+
+**Resource Object Fixtures:**
+- `deployment` - Auto-retrieve deployment object (skips if not found)
+- `service` - Auto-retrieve service object (skips if not found)
+- `ingress` - Auto-retrieve ingress object (skips if not found)
+- `configmap` - Auto-retrieve ConfigMap object (skips if not found)
+- `secret` - Auto-retrieve Secret object (skips if not found)
+
+**Pod State Fixtures:**
+- `pods` - Get current pod list matching label selector
+- `running_pods` - Get only running and ready pods
+
+**Environment & Helper Fixtures:**
 - `ci_environment` - Detect CI/CD environment
 - `k8s_timeouts` - Environment-appropriate timeouts
 - `debug_on_failure` - Automatic debug output on test failure
@@ -311,6 +347,7 @@ pytest test_k8s/test_crash_recovery_manual.py::test_container_restart_on_crash -
 **Benefits**:
 - Reduced boilerplate in test functions
 - Automatic resource retrieval with skipping if not found
+- Centralized resource names (single source of truth)
 - Better timeout management for CI vs local environments
 - Organized test categorization with markers
 
@@ -441,6 +478,28 @@ def test_deployment_replicas(deployment, running_pods):
     
     assert actual == desired, \
         f"Expected {desired} running pods, got {actual}"
+```
+
+**Using ConfigMap and Secret fixtures:**
+```python
+def test_configmap_values(configmap):
+    """Example using configmap fixture - auto-retrieved and skips if not found."""
+    data = configmap.get("data", {})
+    assert "APP_ENV" in data, "ConfigMap missing APP_ENV key"
+
+def test_secret_base64(secret):
+    """Example using secret fixture."""
+    import base64
+    data = secret.get("data", {})
+    decoded = base64.b64decode(data["API_KEY"]).decode('utf-8')
+    assert decoded == "somesecretkey"
+
+def test_deployment_references(deployment, configmap_name, secret_name):
+    """Example using deployment_references_resource utility."""
+    from .utils import deployment_references_resource
+    
+    assert deployment_references_resource(deployment, "configmap", configmap_name)
+    assert deployment_references_resource(deployment, "secret", secret_name)
 ```
 
 ## Migration Guide

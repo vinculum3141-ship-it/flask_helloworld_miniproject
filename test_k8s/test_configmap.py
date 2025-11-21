@@ -1,26 +1,20 @@
 """Test ConfigMap integration with pods."""
 import pytest
 
-from .utils import get_pods, exec_in_pod, get_configmap, get_deployment
+from .utils import exec_in_pod, deployment_references_resource
 
 
-def test_configmap_exists():
+def test_configmap_exists(configmap, configmap_name):
     """Verify that the ConfigMap resource exists in the cluster."""
-    configmap = get_configmap("hello-config")
-    
-    assert configmap is not None, "ConfigMap 'hello-config' does not exist in the cluster"
+    assert configmap is not None, f"ConfigMap '{configmap_name}' does not exist in the cluster"
     assert configmap["kind"] == "ConfigMap", "Resource is not a ConfigMap"
-    assert configmap["metadata"]["name"] == "hello-config", "ConfigMap has wrong name"
+    assert configmap["metadata"]["name"] == configmap_name, "ConfigMap has wrong name"
     
-    print("✓ ConfigMap 'hello-config' exists")
+    print(f"✓ ConfigMap '{configmap_name}' exists")
 
 
-def test_configmap_has_correct_keys():
+def test_configmap_has_correct_keys(configmap):
     """Verify that the ConfigMap contains the expected keys and values."""
-    configmap = get_configmap("hello-config")
-    
-    assert configmap is not None, "ConfigMap 'hello-config' not found"
-    
     data = configmap.get("data", {})
     
     # Check expected keys exist
@@ -35,28 +29,12 @@ def test_configmap_has_correct_keys():
     print(f"✓ ConfigMap has correct keys and values: {data}")
 
 
-def test_deployment_references_configmap():
+def test_deployment_references_configmap(deployment, configmap_name):
     """Verify that the deployment references the ConfigMap correctly."""
-    deployment = get_deployment("hello-flask")
+    assert deployment_references_resource(deployment, "configmap", configmap_name), \
+        f"Deployment does not reference ConfigMap '{configmap_name}' in envFrom"
     
-    assert deployment is not None, "Deployment 'hello-flask' not found"
-    
-    containers = deployment["spec"]["template"]["spec"]["containers"]
-    assert len(containers) > 0, "No containers found in deployment"
-    
-    main_container = containers[0]
-    env_from = main_container.get("envFrom", [])
-    
-    # Check that envFrom includes configMapRef to hello-config
-    configmap_refs = [
-        ref for ref in env_from 
-        if "configMapRef" in ref and ref["configMapRef"]["name"] == "hello-config"
-    ]
-    
-    assert len(configmap_refs) > 0, \
-        "Deployment does not reference ConfigMap 'hello-config' in envFrom"
-    
-    print("✓ Deployment correctly references ConfigMap 'hello-config'")
+    print(f"✓ Deployment correctly references ConfigMap '{configmap_name}'")
 
 
 def test_configmap_applied(pods):

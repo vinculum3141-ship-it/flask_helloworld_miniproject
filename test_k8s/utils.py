@@ -551,3 +551,46 @@ def get_secret(name: str, namespace: str = "default") -> Optional[Dict[str, Any]
         return None
     
     return json.loads(result.stdout)
+
+
+def deployment_references_resource(deployment: Dict[str, Any], resource_type: str, resource_name: str) -> bool:
+    """
+    Check if a deployment references a ConfigMap or Secret via envFrom.
+    
+    Args:
+        deployment: Deployment dictionary
+        resource_type: Type of resource ("configmap" or "secret")
+        resource_name: Name of the resource to check for
+        
+    Returns:
+        True if deployment references the resource, False otherwise
+        
+    Example:
+        deployment = get_deployment("hello-flask")
+        if deployment_references_resource(deployment, "configmap", "hello-config"):
+            print("Deployment references hello-config ConfigMap")
+    """
+    if not deployment:
+        return False
+    
+    containers = deployment.get("spec", {}).get("template", {}).get("spec", {}).get("containers", [])
+    if not containers:
+        return False
+    
+    main_container = containers[0]
+    env_from = main_container.get("envFrom", [])
+    
+    # Determine the reference key based on resource type
+    if resource_type.lower() == "configmap":
+        ref_key = "configMapRef"
+    elif resource_type.lower() == "secret":
+        ref_key = "secretRef"
+    else:
+        return False
+    
+    # Check if envFrom includes the resource reference
+    for ref in env_from:
+        if ref_key in ref and ref[ref_key].get("name") == resource_name:
+            return True
+    
+    return False

@@ -2,27 +2,21 @@
 import base64
 import pytest
 
-from .utils import get_pods, exec_in_pod, get_secret, get_deployment
+from .utils import exec_in_pod, deployment_references_resource
 
 
-def test_secret_exists():
+def test_secret_exists(secret, secret_name):
     """Verify that the Secret resource exists in the cluster."""
-    secret = get_secret("hello-secrets")
-    
-    assert secret is not None, "Secret 'hello-secrets' does not exist in the cluster"
+    assert secret is not None, f"Secret '{secret_name}' does not exist in the cluster"
     assert secret["kind"] == "Secret", "Resource is not a Secret"
-    assert secret["metadata"]["name"] == "hello-secrets", "Secret has wrong name"
+    assert secret["metadata"]["name"] == secret_name, "Secret has wrong name"
     assert secret["type"] == "Opaque", "Secret should be of type Opaque"
     
-    print("✓ Secret 'hello-secrets' exists")
+    print(f"✓ Secret '{secret_name}' exists")
 
 
-def test_secret_has_correct_keys():
+def test_secret_has_correct_keys(secret):
     """Verify that the Secret contains the expected keys."""
-    secret = get_secret("hello-secrets")
-    
-    assert secret is not None, "Secret 'hello-secrets' not found"
-    
     data = secret.get("data", {})
     
     # Check expected keys exist
@@ -33,12 +27,8 @@ def test_secret_has_correct_keys():
     print(f"✓ Secret has correct keys: {list(data.keys())}")
 
 
-def test_secret_values_are_base64_encoded():
+def test_secret_values_are_base64_encoded(secret):
     """Verify that Secret values are properly base64-encoded."""
-    secret = get_secret("hello-secrets")
-    
-    assert secret is not None, "Secret 'hello-secrets' not found"
-    
     data = secret.get("data", {})
     
     # Test each value can be decoded from base64
@@ -65,28 +55,12 @@ def test_secret_values_are_base64_encoded():
     print(f"✓ All Secret values are correctly base64-encoded")
 
 
-def test_deployment_references_secret():
+def test_deployment_references_secret(deployment, secret_name):
     """Verify that the deployment references the Secret correctly."""
-    deployment = get_deployment("hello-flask")
+    assert deployment_references_resource(deployment, "secret", secret_name), \
+        f"Deployment does not reference Secret '{secret_name}' in envFrom"
     
-    assert deployment is not None, "Deployment 'hello-flask' not found"
-    
-    containers = deployment["spec"]["template"]["spec"]["containers"]
-    assert len(containers) > 0, "No containers found in deployment"
-    
-    main_container = containers[0]
-    env_from = main_container.get("envFrom", [])
-    
-    # Check that envFrom includes secretRef to hello-secrets
-    secret_refs = [
-        ref for ref in env_from 
-        if "secretRef" in ref and ref["secretRef"]["name"] == "hello-secrets"
-    ]
-    
-    assert len(secret_refs) > 0, \
-        "Deployment does not reference Secret 'hello-secrets' in envFrom"
-    
-    print("✓ Deployment correctly references Secret 'hello-secrets'")
+    print(f"✓ Deployment correctly references Secret '{secret_name}'")
 
 
 def test_secret_applied(pods):

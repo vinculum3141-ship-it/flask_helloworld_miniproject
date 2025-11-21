@@ -92,6 +92,29 @@ def ingress_name() -> str:
 
 
 @pytest.fixture(scope="session")
+def configmap_name() -> str:
+    """
+    Fixture that provides the ConfigMap name.
+    
+    Returns:
+        Name of the hello-flask ConfigMap
+    """
+    return "hello-config"
+
+
+@pytest.fixture(scope="session")
+def secret_name() -> str:
+    """
+    Fixture that provides the Secret name.
+    
+    Returns:
+        Name of the hello-flask Secret
+    """
+    return "hello-secrets"
+
+
+
+@pytest.fixture(scope="session")
 def label_selector() -> str:
     """
     Fixture that provides the label selector for hello-flask pods.
@@ -154,6 +177,51 @@ def deployment(deployment_name) -> Dict[str, Any]:
         pytest.skip(f"Deployment '{deployment_name}' not found")
     return dep
 
+
+@pytest.fixture(scope="function")
+def configmap(configmap_name):
+    """
+    Fixture that provides the ConfigMap object.
+    
+    Returns:
+        ConfigMap dictionary
+        
+    Raises:
+        pytest.skip: If ConfigMap not found
+        
+    Example:
+        def test_configmap_data(configmap):
+            data = configmap.get('data', {})
+            assert 'APP_ENV' in data
+    """
+    from .utils import get_configmap
+    cm = get_configmap(configmap_name)
+    if not cm:
+        pytest.skip(f"ConfigMap '{configmap_name}' not found")
+    return cm
+
+
+@pytest.fixture(scope="function")
+def secret(secret_name):
+    """
+    Fixture that provides the Secret object.
+    
+    Returns:
+        Secret dictionary
+        
+    Raises:
+        pytest.skip: If Secret not found
+        
+    Example:
+        def test_secret_data(secret):
+            data = secret.get('data', {})
+            assert 'API_KEY' in data
+    """
+    from .utils import get_secret
+    sec = get_secret(secret_name)
+    if not sec:
+        pytest.skip(f"Secret '{secret_name}' not found")
+    return sec
 
 @pytest.fixture(scope="function")
 def service(service_name) -> Dict[str, Any]:

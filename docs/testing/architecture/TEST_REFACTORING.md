@@ -78,13 +78,14 @@ test_k8s/
 ├── test_crash_recovery_manual.py # Manual pod crash recovery tests
 ├── test_deployment.py            # Deployment and pod status tests
 ├── test_ingress.py               # Ingress configuration tests
-├── test_liveness_probe.py        # Liveness probe tests
+├── test_liveness_probe.py        # Liveness probe tests (/health)
+├── test_readiness_probe.py       # Readiness probe tests (/ready)
 ├── test_service_ingress.py       # Ingress-based service access tests
 ├── test_service_nodeport.py      # NodePort service access tests
 └── test_service_access.py        # Legacy (kept for backward compatibility)
 ```
 
-**Note:** `test_service_access.py` is kept for backward compatibility but new tests should use the split files (`test_service_nodeport.py` and `test_service_ingress.py`).
+**Note:** `test_service_access.py` is kept for backward compatibility but new tests should use the split files (`test_service_nodeport.py` and `test_service_ingress.py`). Similarly, probe tests are separated: `test_liveness_probe.py` for container health and `test_readiness_probe.py` for traffic routing.
 
 ---
 
@@ -124,6 +125,11 @@ pytest test_k8s/ -v -m manual      # Manual tests (slow, timing-dependent)
 # Run specific test file
 pytest test_k8s/test_deployment.py -v
 pytest test_k8s/test_liveness_probe.py -v
+pytest test_k8s/test_readiness_probe.py -v
+
+# Or use make targets
+make liveness-test    # Liveness probe configuration tests
+make readiness-test   # Readiness probe configuration tests
 
 # Run all tests (including manual)
 pytest test_k8s/ -v

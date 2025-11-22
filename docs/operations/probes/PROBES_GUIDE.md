@@ -692,16 +692,28 @@ kubectl get endpoints hello-flask
 
 ### Automated Tests
 
-**Configuration Tests (Fast):**
+**Liveness Probe Configuration Tests (Fast):**
 ```bash
-# Test probe configuration (doesn't trigger failures)
-pytest test_k8s/test_liveness_probe.py -v
+# Test liveness probe configuration
+make liveness-test
+# OR: pytest test_k8s/test_liveness_probe.py -v
 
 # What it checks:
-# - Liveness probe configured correctly
-# - Readiness probe configured correctly
+# - Liveness probe configured correctly (/health endpoint)
 # - Proper timing parameters
-# - Probes use correct endpoint
+# - Container restart tracking
+```
+
+**Readiness Probe Configuration Tests (Fast):**
+```bash
+# Test readiness probe configuration
+make readiness-test
+# OR: pytest test_k8s/test_readiness_probe.py -v
+
+# What it checks:
+# - Readiness probe configured correctly (/ready endpoint)
+# - Ready replicas match desired count
+# - All running pods pass readiness checks
 ```
 
 **Behavioral Tests (Slow, Manual):**
@@ -1053,7 +1065,8 @@ livenessProbe:
 # .github/workflows/ci-cd.yml
 - name: Test Probe Configuration
   run: |
-    pytest test_k8s/test_liveness_probe.py -v
+    make liveness-test    # Test liveness probe config
+    make readiness-test   # Test readiness probe config
 ```
 
 **Manual testing:**
@@ -1103,8 +1116,10 @@ make liveness-test-manual
 - **Repository Documentation:**
   - `README.md` - Quick testing examples
   - `test_k8s/README.md` - Test suite architecture
-  - `test_k8s/test_liveness_probe.py` - Configuration tests
+  - `test_k8s/test_liveness_probe.py` - Liveness probe configuration tests
+  - `test_k8s/test_readiness_probe.py` - Readiness probe configuration tests
   - `test_k8s/test_crash_recovery_manual.py` - Behavioral tests
+  - `docs/testing/TESTING_WORKFLOWS.md` - Complete testing workflows
 - **Related Guides:**
   - `docs/CI_CD_GUIDE.md` - How probes work in CI/CD
   - `docs/DEVELOPMENT_WORKFLOW.md` - Pre-push validation

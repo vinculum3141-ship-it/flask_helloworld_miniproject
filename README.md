@@ -486,6 +486,9 @@ make delete          # Cleanup
 make unit-tests      # Run unit tests
 make k8s-tests       # Run K8s tests
 make smoke-test      # Quick validation
+make test-all        # Run all automated tests (unit + k8s)
+make test-full       # Run ALL tests including manual, educational, nodeport
+make health-tests    # Run health endpoint tests (temporarily switches to NodePort)
 
 # Validation (before push)
 make validate-repo      # Check repository structure
@@ -493,8 +496,8 @@ make validate-workflow  # Check GitHub Actions config
 make validate-all       # Run all validations
 
 # Composite targets
-make test-all        # Run all tests
 make full-deploy     # Build → deploy → smoke test
+make release-prep    # Complete release workflow: validate → test-full → build → deploy → smoke test
 make help            # Show all commands
 ```
 
@@ -528,10 +531,15 @@ CI=true pytest test_k8s/test_service_ingress.py -v -s
 
 **Or use Makefile shortcuts:**
 ```bash
-make k8s-tests           # All automated K8s tests (includes educational)
-make educational-tests   # Educational Ingress tests only
-make ingress-tests       # All Ingress tests (basic + educational)
+make test-all            # All automated tests (unit → k8s → smoke)
+make k8s-tests           # Kubernetes integration tests
+make health-tests        # Health endpoint tests (NodePort switching)
+make educational-tests   # Educational Ingress tests
+make test-full           # ALL tests (6 categories)
+make release-prep        # Complete release workflow
 ```
+
+**For comprehensive manual testing workflow**, see the [Full Manual Testing](scripts/README.md#full-manual-testing-workflow) section in the Scripts Guide.
 
 ### Test Organization
 

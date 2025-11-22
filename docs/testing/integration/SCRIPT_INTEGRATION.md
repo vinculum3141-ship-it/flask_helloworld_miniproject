@@ -50,13 +50,30 @@ make smoke-test
 **Pytest Arguments (with --manual):** `-v -s -m manual`
 
 **What it runs:**
-- **Without flag:** Configuration tests for liveness probe setup
+- **Without flag:** Configuration tests for liveness probe setup (/health endpoint)
 - **With --manual flag:** Behavioral tests (pod deletion, auto-recovery)
 
 **Usage:**
 ```bash
 make liveness-test         # Config only (fast)
 make liveness-test-manual  # Behavioral tests (slow)
+```
+
+---
+
+### 4. **scripts/readiness_test.sh** - Readiness Probe Testing
+
+**Pytest Arguments (default):** `test_k8s/test_readiness_probe.py -v -s`
+**Pytest Arguments (with --manual):** `-v -s -m manual -k readiness`
+
+**What it runs:**
+- **Without flag:** Configuration tests for readiness probe setup (/ready endpoint)
+- **With --manual flag:** Behavioral tests (traffic routing validation)
+
+**Usage:**
+```bash
+make readiness-test         # Config only (fast)
+make readiness-test-manual  # Behavioral tests
 ```
 
 **Purpose:** Targeted liveness probe testing with optional behavioral validation.

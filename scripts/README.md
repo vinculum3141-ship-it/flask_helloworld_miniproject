@@ -111,6 +111,8 @@ bash scripts/k8s_tests.sh
 - **Default mode:** Runs automated liveness probe configuration tests
 - **Manual mode:** Runs behavioral tests (pod deletion, crash recovery)
 - **Config mode:** Runs only configuration checks
+- Tests `/health` endpoint and liveness probe behavior
+- Verifies automatic container restart on failure
 
 **Usage:**
 ```bash
@@ -128,7 +130,67 @@ bash scripts/liveness_test.sh --config
 - Automated/Config: Fast (~2-3 seconds)
 - Manual: Slow (~60-90 seconds)
 
-**Note:** Manual tests involve wait times and are best run explicitly
+**Note:** Manual tests involve wait times and are best run explicitly. Readiness probe tests are in `readiness_test.sh`.
+
+---
+
+#### `readiness_test.sh`
+**Purpose:** Run readiness probe and traffic routing tests with multiple modes.
+
+**What it does:**
+- **Default mode:** Runs automated readiness probe configuration tests
+- **Manual mode:** Runs behavioral tests (traffic routing, pod readiness)
+- **Config mode:** Runs only configuration checks
+- Tests `/ready` endpoint and readiness probe behavior
+- Verifies ready replicas match desired count
+
+**Usage:**
+```bash
+# Automated configuration tests only (default)
+bash scripts/readiness_test.sh
+
+# Manual behavioral tests (traffic routing validation)
+bash scripts/readiness_test.sh --manual
+
+# Configuration check only
+bash scripts/readiness_test.sh --config
+```
+
+**Duration:**
+- Automated/Config: Fast (~2-3 seconds)
+- Manual: May involve timing (~10-30 seconds)
+
+**Note:** Readiness probe determines when pods receive traffic. Separate from liveness probe which handles container restarts.
+
+---
+
+#### `health_endpoint_tests.sh`
+**Purpose:** Run comprehensive /health endpoint tests in development.
+
+**What it does:**
+- Temporarily switches service from ClusterIP to NodePort
+- Runs all health endpoint integration tests
+- Automatically restores service to ClusterIP after testing
+- Safe cleanup even if tests fail (uses trap)
+
+**Usage:**
+```bash
+bash scripts/health_endpoint_tests.sh
+# or
+make health-tests
+```
+
+**Duration:** ~30-40 seconds
+
+**When to run:**
+- Development testing of /health endpoint behavior
+- Validating health check performance and reliability
+- Testing health endpoint during replica scaling
+
+**Note:** 
+- Requires active deployment
+- Temporarily modifies service configuration (auto-restored)
+- Not included in smoke tests (runs separately for development)
 
 ---
 
@@ -245,13 +307,15 @@ bash scripts/setup_ingress.sh
 | `delete_local.sh` | Cleanup resources | ~5s | No |
 | `unit_tests.sh` | App unit tests | ~2s | No |
 | `k8s_tests.sh` | K8s integration tests | ~15-20s | No |
-| `liveness_test.sh` | Liveness/probe tests | ~2-90s* | No |
+| `liveness_test.sh` | Liveness probe tests | ~2-90s* | No |
+| `readiness_test.sh` | Readiness probe tests | ~2-30s** | No |
 | `smoke_test.sh` | Quick validation | ~15-20s | No |
 | `port_forward.sh` | Port forwarding | Continuous | Yes |
 | `minikube_service_url.sh` | Get access URL | ~1s | No |
 | `setup_ingress.sh` | Setup Ingress | ~30-60s | No |
 
-\* *Duration depends on mode: config (~2s), automated (~3s), manual (~60-90s)*
+\* *Liveness test duration depends on mode: config (~2s), automated (~3s), manual (~60-90s)*  
+\*\* *Readiness test duration depends on mode: config (~2s), automated (~3s), manual (~10-30s)*
 
 ---
 
@@ -370,7 +434,8 @@ make liveness-test-config  # Run only liveness probe configuration check
 
 **Composite Test Targets:**
 ```bash
-make test-all        # Run all tests (unit + k8s integration)
+make test-all        # Run all automated tests (unit + k8s integration, excludes manual)
+make test-full       # Run ALL tests including manual, educational, and nodeport (comprehensive)
 ```
 
 ### Utility Targets
@@ -407,7 +472,9 @@ These targets run multiple steps in sequence:
 
 ```bash
 make full-deploy     # Complete workflow: build → deploy → smoke test
-make test-all        # Run both unit and k8s tests
+make test-all        # Run automated tests (unit + k8s, excludes manual)
+make test-full       # Run ALL tests including manual, educational, and nodeport
+make release-prep    # Complete release preparation: validate-all → test-full → build → deploy → smoke test
 ```
 
 ### Complete Makefile Reference
@@ -421,9 +488,13 @@ make test-all        # Run both unit and k8s tests
 | `k8s-tests` | `k8s_tests.sh` | Run K8s integration tests |
 | `educational-tests` | `pytest -m educational` | Run educational Ingress tests |
 | `ingress-tests` | `pytest -m ingress` | Run all Ingress tests |
-| `liveness-test` | `liveness_test.sh` | Run automated liveness tests |
-| `liveness-test-manual` | `liveness_test.sh --manual` | Run manual behavioral tests |
-| `liveness-test-config` | `liveness_test.sh --config` | Run config check only |
+| `health-tests` | `health_endpoint_tests.sh` | Run health endpoint tests (NodePort) |
+| `liveness-test` | `liveness_test.sh` | Run automated liveness probe tests |
+| `liveness-test-manual` | `liveness_test.sh --manual` | Run manual liveness behavioral tests |
+| `liveness-test-config` | `liveness_test.sh --config` | Run liveness config check only |
+| `readiness-test` | `readiness_test.sh` | Run automated readiness probe tests |
+| `readiness-test-manual` | `readiness_test.sh --manual` | Run manual readiness behavioral tests |
+| `readiness-test-config` | `readiness_test.sh --config` | Run readiness config check only |
 | `smoke-test` | `smoke_test.sh` | Run smoke tests |
 | `port-forward` | `port_forward.sh` | Forward service port |
 | `minikube-url` | `minikube_service_url.sh` | Get service URL |
@@ -431,8 +502,10 @@ make test-all        # Run both unit and k8s tests
 | `validate-workflow` | `validate_workflow.sh` | Validate GitHub Actions workflow |
 | `validate-all` | Composite | Run all validation checks |
 | `changelog` | `generate_changelog.sh` | Generate changelog |
-| `test-all` | Composite | Run unit + k8s tests |
+| `test-all` | Composite | Run unit + k8s tests (automated) |
+| `test-full` | Composite | Run ALL tests (includes manual, educational, nodeport) |
 | `full-deploy` | Composite | Build + deploy + smoke test |
+| `release-prep` | Composite | Complete release: validate + test-full + build + deploy + smoke |
 | `help` | Display help | Show all available targets |
 
 ### Benefits of Using Makefile
@@ -454,18 +527,61 @@ make full-deploy
 # bash scripts/smoke_test.sh
 ```
 
-**Run all tests:**
+**Run automated tests (CI/CD friendly):**
 ```bash
 make test-all
 # Equivalent to:
 # bash scripts/unit_tests.sh
 # bash scripts/k8s_tests.sh
+# Excludes manual/slow tests
+```
+
+**Run comprehensive tests (development):**
+```bash
+make test-full
+# Runs ALL tests including:
+# - Unit tests
+# - K8s integration tests
+# - Educational ingress tests
+# - NodePort tests
+# - Manual/slow tests (crash recovery)
+```
+
+**Prepare for release:**
+```bash
+make release-prep
+# Complete release preparation workflow:
+# 1. Repository validation
+# 2. Full test suite (test-full)
+# 3. Build Docker image
+# 4. Deploy to local cluster
+# 5. Final smoke test
+# 6. Display release checklist
 ```
 
 **Check available commands:**
 ```bash
 make help
 ```
+
+---
+
+### Test Target Selection Guide
+
+| Target | Duration | Use Case | When to Run |
+|--------|----------|----------|-------------|
+| `make unit-tests` | ~1-2 sec | Unit testing only | During development, after code changes |
+| `make k8s-tests` | ~30-60 sec | K8s integration (automated) | After deployment changes, in CI/CD |
+| `make health-tests` | ~30-40 sec | Health endpoint validation | Development, testing /health behavior |
+| `make test-all` | ~1-2 min | Automated suite | Pre-commit, CI/CD pipelines |
+| `make test-full` | ~5-10 min | Comprehensive testing | Pre-release, major changes |
+| `make smoke-test` | ~5-10 sec | Quick validation | After deployment |
+
+**Recommendation:**
+- **During development:** `make unit-tests` or `make test-all`
+- **Before commit/push:** `make test-all`
+- **Before release:** `make release-prep`
+- **In CI/CD:** `make test-all`
 
 ---
 
@@ -511,6 +627,58 @@ bash scripts/liveness_test.sh --manual
 bash scripts/smoke_test.sh
 ```
 
+### Release Preparation Workflow
+
+**Option 1: Using Makefile (Recommended)**
+```bash
+# Complete automated release preparation
+make release-prep
+
+# After completion, follow the displayed checklist:
+# 1. Review CHANGELOG.md
+# 2. Update version numbers
+# 3. Commit changes
+# 4. Create and push git tag
+# 5. Create GitHub release
+```
+
+**Option 2: Manual Step-by-Step**
+```bash
+# 1. Validate repository and workflow
+make validate-all
+
+# 2. Run comprehensive test suite
+make test-full
+
+# 3. Build final image
+make build
+
+# 4. Deploy to local cluster for final validation
+make deploy
+
+# 5. Final smoke test
+make smoke-test
+
+# 6. Generate changelog (replace v1.0.0 with your previous tag)
+make changelog-since TAG=v1.0.0
+
+# 7. Review output and update CHANGELOG.md
+# 8. Commit, tag, and push
+git add .
+git commit -m "Release v1.1.0"
+git tag -a v1.1.0 -m "Release v1.1.0"
+git push origin main
+git push origin v1.1.0
+```
+
+**What `make release-prep` does:**
+1. ✅ Validates repository structure and GitHub Actions workflow
+2. ✅ Runs ALL tests (unit, k8s, educational, nodeport, manual)
+3. ✅ Builds production Docker image
+4. ✅ Deploys to local cluster
+5. ✅ Runs final smoke tests
+6. ✅ Displays comprehensive release checklist
+
 ### Development Workflow
 
 ```bash
@@ -524,6 +692,130 @@ bash scripts/deploy_local.sh
 # Test changes
 bash scripts/smoke_test.sh
 ```
+
+### Full Manual Testing Workflow
+
+For comprehensive step-by-step manual verification of all components:
+
+```bash
+# 1. Environment Setup
+minikube start
+minikube status
+kubectl cluster-info
+
+# 2. Validate Repository
+make validate-all
+
+# 3. Run All Test Suites
+make unit-tests              # Unit tests
+make k8s-tests              # Kubernetes integration tests
+make educational-tests      # Educational/demo tests
+make health-tests           # Health endpoint tests (NodePort)
+
+# 4. Build and Deploy
+make build                  # Build Docker image
+make deploy                 # Deploy to Kubernetes
+
+# 5. Verify Deployment
+kubectl get pods -l app=hello-flask
+kubectl get service hello-flask
+kubectl get ingress hello-flask-ingress
+kubectl get configmap hello-flask-config
+kubectl get secret hello-flask-secret
+
+# 6. Check Pod Health
+kubectl describe pods -l app=hello-flask
+kubectl logs -l app=hello-flask --tail=50
+
+# 7. Run Smoke Tests
+make smoke-test
+
+# 8. Manual Service Testing
+# Test via Ingress
+curl -H "Host: hello-flask.local" http://$(minikube ip)/
+curl -H "Host: hello-flask.local" http://$(minikube ip)/health
+
+# Test via NodePort (optional)
+kubectl patch service hello-flask -p '{"spec":{"type":"NodePort"}}'
+minikube service hello-flask --url
+# Use the URL from above to test:
+# curl <SERVICE_URL>/
+# curl <SERVICE_URL>/health
+
+# Restore to ClusterIP
+kubectl patch service hello-flask -p '{"spec":{"type":"ClusterIP"}}'
+
+# 9. Test Liveness/Readiness Probes
+kubectl describe deployment hello-flask | grep -A 10 "Liveness\|Readiness"
+
+# 10. Test Pod Restart and Recovery
+kubectl delete pod -l app=hello-flask --force --grace-period=0
+kubectl get pods -l app=hello-flask -w  # Watch pods restart (Ctrl+C to exit)
+make smoke-test  # Verify service recovered
+
+# 11. Test Scaling
+kubectl scale deployment hello-flask --replicas=3
+kubectl get pods -l app=hello-flask -w  # Watch scaling (Ctrl+C when ready)
+make smoke-test  # Verify with 3 replicas
+
+# Scale back to 2
+kubectl scale deployment hello-flask --replicas=2
+kubectl get pods -l app=hello-flask -w  # Watch scale down (Ctrl+C when done)
+make smoke-test
+
+# 12. Test ConfigMap and Secret Values
+kubectl get configmap hello-flask-config -o yaml
+kubectl get secret hello-flask-secret -o yaml
+# Verify values in pods:
+POD=$(kubectl get pod -l app=hello-flask -o jsonpath='{.items[0].metadata.name}')
+kubectl exec -it $POD -- printenv | grep -E "ENVIRONMENT|APP_NAME|API_KEY|DB_PASSWORD"
+
+# 13. Test Ingress Routing
+# Test correct hostname
+curl -H "Host: hello-flask.local" http://$(minikube ip)/
+# Test wrong hostname (should get 404)
+curl -H "Host: wrong-hostname.local" http://$(minikube ip)/
+
+# 14. Load Balancing Test
+for i in {1..10}; do 
+  curl -s -H "Host: hello-flask.local" http://$(minikube ip)/ | grep -o "hello-flask-[a-z0-9-]*"
+done
+# Should see requests distributed across different pods
+
+# 15. Final Comprehensive Test
+make test-full
+
+# 16. Cleanup (optional)
+make delete
+kubectl get all -l app=hello-flask  # Should show no resources
+```
+
+**Manual Testing Checklist:**
+
+- [ ] Minikube is running and accessible
+- [ ] Repository structure validated (`make validate-all`)
+- [ ] Unit tests pass (`make unit-tests`)
+- [ ] Kubernetes integration tests pass (`make k8s-tests`)
+- [ ] Docker image builds successfully (`make build`)
+- [ ] Deployment applied successfully (`make deploy`)
+- [ ] All pods are Running (2/2 replicas)
+- [ ] Service is type ClusterIP
+- [ ] Ingress has IP address assigned
+- [ ] ConfigMap exists with correct keys
+- [ ] Secret exists with correct keys (base64 encoded)
+- [ ] Environment variables injected into pods
+- [ ] Application responds via Ingress
+- [ ] Health endpoint returns 200 OK
+- [ ] Liveness probe configured correctly
+- [ ] Readiness probe configured correctly
+- [ ] Pods can restart and recover
+- [ ] Service scales up and down correctly
+- [ ] Load balancing works across replicas
+- [ ] Hostname routing works (correct host accepted, wrong host rejected)
+- [ ] Health endpoint tests pass (`make health-tests`)
+- [ ] Smoke tests pass (`make smoke-test`)
+- [ ] Educational tests pass (`make educational-tests`)
+- [ ] All comprehensive tests pass (`make test-full`)
 
 ---
 

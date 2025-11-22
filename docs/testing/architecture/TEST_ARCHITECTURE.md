@@ -56,9 +56,14 @@ test_k8s/
 │   └── Uses: utils, fixtures     ││
 │                                 ││
 ├── test_liveness_probe.py ───────┼┤
-│   └── Uses: utils, fixtures     ││  All Tests
-│                                 ││  Import From
-├── test_crash_recovery_manual.py ┼┤  Shared Modules
+│   └── Uses: utils, fixtures     ││
+│       (liveness probe only)     ││
+│                                 ││  All Tests
+├── test_readiness_probe.py ──────┼┤  Import From
+│   └── Uses: utils, fixtures     ││  Shared Modules
+│       (readiness probe only)    ││
+│                                 ││
+├── test_crash_recovery_manual.py ┼┤
 │   └── Uses: utils, fixtures     ││
 │                                 ││
 ├── test_service_nodeport.py ─────┼┤
@@ -85,7 +90,7 @@ test_k8s/
 - ✅ 20+ reusable utility functions
 - ✅ 10+ pytest fixtures for automated setup
 - ✅ Consistent error handling
-- ✅ Clear separation of concerns
+- ✅ Clear separation of concerns (liveness vs readiness)
 - ✅ Environment-aware timeouts
 - ✅ Comprehensive debugging tools
 - ✅ Custom pytest markers for test categorization

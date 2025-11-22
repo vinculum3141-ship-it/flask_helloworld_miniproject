@@ -17,6 +17,9 @@ This directory contains comprehensive testing docum- **[health-endpoint/HEALTH_E
 ```
 testing/
 ├── README.md (this file)              # Testing documentation index
+├── UNIT_TEST_REFERENCE.md            # ✨ Quick reference for unit test intent
+├── TESTING_WORKFLOWS.md              # 🔄 Complete testing workflows and sequences
+├── HEALTH_ENDPOINT_TESTING.md        # Health endpoint testing guide
 ├── architecture/                      # Test suite architecture
 │   ├── TEST_ARCHITECTURE.md          # Test suite design and organization
 │   └── TEST_REFACTORING.md           # Refactoring history and improvements
@@ -36,8 +39,19 @@ testing/
 ## 🚀 Quick Start
 
 **New to this documentation?** Start here:
-- **[health-endpoint/README.md](health-endpoint/README.md)** - Health endpoint testing overview and navigation
+- **[TESTING_WORKFLOWS.md](TESTING_WORKFLOWS.md)** - 🔄 **Complete testing workflows and command sequences**
+- **[UNIT_TEST_REFERENCE.md](UNIT_TEST_REFERENCE.md)** - ✨ **Quick reference for what each test validates**
+- **[HEALTH_ENDPOINT_TESTING.md](HEALTH_ENDPOINT_TESTING.md)** - Health endpoint testing overview
 - **[architecture/TEST_ARCHITECTURE.md](architecture/TEST_ARCHITECTURE.md)** - Test suite architecture
+
+**Need step-by-step testing sequences?**
+- **[TESTING_WORKFLOWS.md](TESTING_WORKFLOWS.md)** - All workflows: development, manual testing, release prep
+- **[Full Manual Testing](../../scripts/README.md#full-manual-testing-workflow)** - Comprehensive manual verification
+
+**Need to understand a specific test?**
+- **[UNIT_TEST_REFERENCE.md](UNIT_TEST_REFERENCE.md)** - "What does this test do?" quick lookup
+- Test docstrings in `app/tests/test_app.py` - Primary source for test intent
+- `TEST_COVERAGE_ANALYSIS.md` (project root) - Comprehensive coverage analysis
 
 **Need to make a decision?**
 - **[health-endpoint/HEALTH_ENDPOINT_TESTING_GUIDE.md § 3.4](health-endpoint/HEALTH_ENDPOINT_TESTING_GUIDE.md#34-test-suite-comparison--decision-guide)** - Test suite comparison and decision guide
@@ -49,6 +63,23 @@ testing/
 ---
 
 ## 📚 Documentation Index
+
+### Unit Test Reference
+**Location:** `testing/`
+
+- **[UNIT_TEST_REFERENCE.md](UNIT_TEST_REFERENCE.md)** - ✨ **NEW** Quick reference guide
+  - What each test validates (quick lookup table)
+  - Where test intent is documented (3 locations)
+  - How to find specific information
+  - Cross-references between code and docs
+  - Educational documentation by topic
+  - Best practices for writing/updating tests
+
+**Use this when**:
+- "What does test X do?"
+- "Why do we need this test?"
+- "Where is test coverage documented?"
+- Writing new tests (see patterns)
 
 ### Test Architecture
 **Location:** `testing/architecture/`

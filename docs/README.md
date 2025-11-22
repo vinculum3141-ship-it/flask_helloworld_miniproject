@@ -63,9 +63,15 @@ Comprehensive guides for Kubernetes operations, CI/CD, and troubleshooting.
 ### Testing Documentation
 **Location:** `docs/testing/`
 
-All testing documentation including architecture, integration tests, and health endpoint testing.
+All testing documentation including workflows, architecture, integration tests, and health endpoint testing.
 
 - **[testing/](testing/README.md)** - Testing documentation index
+- **[testing/TESTING_WORKFLOWS.md](testing/TESTING_WORKFLOWS.md)** - 🔄 **Complete testing workflows and command sequences**
+  - Standard development workflow
+  - Test sequences (fast, comprehensive, health endpoint)
+  - Full manual testing with step-by-step commands
+  - Make targets reference
+  - Common scenarios and use cases
 
 - **[testing/architecture/](testing/architecture/)** - Test suite architecture
   - **[TEST_ARCHITECTURE.md](testing/architecture/TEST_ARCHITECTURE.md)** - Complete test suite architecture

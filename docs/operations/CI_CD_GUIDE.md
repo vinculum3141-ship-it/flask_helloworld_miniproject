@@ -54,6 +54,7 @@ Triggers on PRs targeting:
 Allows on-demand execution with custom parameters:
 - **Environment**: `test`, `staging`, or `production`
 - **Run smoke tests**: Toggle smoke test execution
+- **Debug mode**: Enable detailed debugging output across all scripts
 
 ---
 
@@ -69,7 +70,22 @@ Allows on-demand execution with custom parameters:
 - ✅ Start Minikube cluster (K8s v1.28.0)
 - ✅ Enable nginx Ingress controller
 
-### Stage 2: Build
+### Stage 2: Build Validation
+**Duration**: ~1 minute
+
+Early validation before expensive Docker build:
+
+- ✅ **Step 4: Validate repository structure**
+  - Script: `scripts/validate_repo_structure.sh`
+  - Verifies all required directories and files exist
+  - Fails fast if project structure is incorrect
+
+- ✅ **Step 5: Validate workflow configuration**
+  - Script: `scripts/validate_workflow.sh`
+  - Checks GitHub Actions workflow syntax
+  - Ensures CI/CD pipeline configuration is valid
+
+### Stage 3: Build
 **Duration**: ~10 minutes
 
 - ✅ Build Docker image with layer caching
@@ -82,7 +98,7 @@ hello-flask:${GITHUB_SHA}
 hello-flask:latest
 ```
 
-### Stage 3: Deploy
+### Stage 4: Deploy
 **Duration**: ~5 minutes
 **Note**: Skipped for Pull Requests
 
@@ -92,7 +108,7 @@ hello-flask:latest
 
 **Deployment Script**: See [`scripts/deploy_local.sh`](../scripts/README.md#deploy_localsh)
 
-### Stage 4: Test
+### Stage 5: Test
 **Duration**: ~10 minutes
 
 Tests run in sequence with continue-on-error to collect all results:
@@ -112,7 +128,7 @@ Tests run in sequence with continue-on-error to collect all results:
 
 **Test Reports**: Uploaded as GitHub artifacts (retained for 7 days)
 
-### Stage 5: Security Scanning
+### Stage 6: Security Scanning
 **Duration**: ~5 minutes
 **Runs in parallel** with deployment/testing
 
@@ -120,7 +136,7 @@ Tests run in sequence with continue-on-error to collect all results:
 - ✅ SARIF report uploaded to GitHub Security tab
 - ✅ Scan results available in pipeline logs
 
-### Stage 6: Cleanup
+### Stage 7: Cleanup
 **Duration**: ~2 minutes
 **Guaranteed to run** even on failure
 
@@ -233,6 +249,11 @@ gh workflow run "Flask CI/CD Pipeline" \
   --ref main \
   --field environment=staging \
   --field run_smoke_tests=true
+
+# Trigger with debug mode enabled
+gh workflow run "Flask CI/CD Pipeline" \
+  --ref main \
+  --field debug_mode=true
 ```
 
 #### Create Pull Requests
@@ -376,6 +397,31 @@ See the [Makefile](../Makefile) for all available commands.
 ---
 
 ## Troubleshooting
+
+### Enabling Debug Mode
+
+For detailed debugging output across all pipeline scripts:
+
+**Via GitHub UI**:
+1. Navigate to **Actions** tab in your repository
+2. Select **Flask CI/CD Pipeline** workflow
+3. Click **Run workflow** button
+4. Check the **Enable debug mode** checkbox
+5. Click **Run workflow**
+
+**Via GitHub CLI**:
+```bash
+gh workflow run "Flask CI/CD Pipeline" \
+  --ref main \
+  --field debug_mode=true
+```
+
+**What Debug Mode Does**:
+- Sets `DEBUG=1` environment variable across all scripts
+- Enables verbose output in all shell scripts
+- Shows detailed timing information via `time_command()` wrapper
+- Provides enhanced error messages and stack traces
+- Useful for diagnosing pipeline issues
 
 ### Common Issues
 

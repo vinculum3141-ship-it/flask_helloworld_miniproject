@@ -8,6 +8,44 @@
 
 ## [Unreleased] - 2025-11-22
 
+### CI/CD Workflow Enhancements
+
+**Context**: Improve CI/CD pipeline with better debugging capabilities and early validation.
+
+**Changed**:
+- **.github/workflows/ci-cd.yml**: Added debug mode support
+  - New `debug_mode` input parameter (boolean, default: false)
+  - Sets `DEBUG` environment variable for all scripts
+  - Enables verbose output across entire pipeline
+  - Useful for troubleshooting workflow issues
+
+- **.github/workflows/ci-cd.yml**: Added early validation steps
+  - **Step 4**: Validate repository structure (`scripts/validate_repo_structure.sh`)
+  - **Step 5**: Validate workflow configuration (`scripts/validate_workflow.sh`)
+  - Runs before expensive Docker build operation
+  - Fails fast if project structure or workflow config is invalid
+  - Renumbered all subsequent steps (6→8, 7→9, etc.)
+
+- **docs/operations/CI_CD_GUIDE.md**: Updated documentation
+  - Added debug mode to Manual Dispatch section
+  - Added new Stage 2: Build Validation with Steps 4-5
+  - Renumbered pipeline stages (Build: 2→3, Deploy: 3→4, Test: 4→5, Security: 5→6, Cleanup: 6→7)
+  - Added "Enabling Debug Mode" section to Troubleshooting
+  - Updated GitHub CLI examples with debug_mode parameter
+
+**Testing**:
+- ✅ Workflow YAML validated: 0 errors, 1 warning (non-critical)
+- ✅ All validation scripts exist and executable
+- ✅ Documentation accurately reflects new workflow structure
+
+**Impact**:
+- **Debugging**: Debug mode provides detailed output for troubleshooting
+- **Efficiency**: Early validation prevents wasting time on broken configurations
+- **Clarity**: Better documentation helps users understand new features
+- **Maintainability**: Structured approach to validation and debugging
+
+---
+
 ### Script Refactoring - Phase 3 (Advanced Improvements)
 
 **Context**: Further improve code quality by removing fragile `eval` usage and adding performance tracking.

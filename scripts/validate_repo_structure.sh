@@ -66,7 +66,12 @@ echo "-------------------------"
 check_file "app/app.py" "Flask application"
 check_file "app/Dockerfile" "Docker build configuration"
 check_file "app/requirements.txt" "Python dependencies"
-check_dir "app/__pycache__" "Python cache directory" 2>/dev/null || echo -e "  ${YELLOW}ℹ️${NC}  Python cache (created on first run)"
+# Note: __pycache__ is created automatically by Python, not required for validation
+if [[ -d "app/__pycache__" ]]; then
+    echo -e "  ${GREEN}✅${NC} Python cache directory"
+else
+    echo -e "  ${YELLOW}ℹ️${NC}  Python cache (created on first run)"
+fi
 echo ""
 
 # 2. Kubernetes Manifests
@@ -199,14 +204,14 @@ echo -e "${BLUE}📊 VALIDATION SUMMARY${NC}"
 echo "===================="
 echo ""
 
+if [[ $WARNINGS -gt 0 ]]; then
+    log_warning "Found $WARNINGS warning(s) (optional items missing)"
+fi
+
 if [[ $ERRORS -eq 0 ]]; then
     log_success "All required files and directories are present!"
 else
     log_error "Found $ERRORS critical error(s)"
-fi
-
-if [[ $WARNINGS -gt 0 ]]; then
-    log_warning "Found $WARNINGS warning(s) (optional items missing)"
 fi
 
 echo ""

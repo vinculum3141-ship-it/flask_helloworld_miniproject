@@ -26,6 +26,12 @@
   - Fails fast if project structure or workflow config is invalid
   - Renumbered all subsequent steps (6→8, 7→9, etc.)
 
+- **scripts/validate_repo_structure.sh**: Fixed false positive error
+  - Changed `app/__pycache__` from required to informational
+  - Directory is created automatically by Python, not required for validation
+  - Prevents GitHub Actions failures on fresh checkouts
+  - Correctly shows "ℹ️ Python cache (created on first run)" instead of error
+
 - **docs/operations/CI_CD_GUIDE.md**: Updated documentation
   - Added debug mode to Manual Dispatch section
   - Added new Stage 2: Build Validation with Steps 4-5
@@ -36,11 +42,13 @@
 **Testing**:
 - ✅ Workflow YAML validated: 0 errors, 1 warning (non-critical)
 - ✅ All validation scripts exist and executable
+- ✅ Validation script passes with/without __pycache__
 - ✅ Documentation accurately reflects new workflow structure
 
 **Impact**:
 - **Debugging**: Debug mode provides detailed output for troubleshooting
 - **Efficiency**: Early validation prevents wasting time on broken configurations
+- **Reliability**: No false positives from missing __pycache__ directory
 - **Clarity**: Better documentation helps users understand new features
 - **Maintainability**: Structured approach to validation and debugging
 

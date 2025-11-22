@@ -145,13 +145,14 @@ def get_pod_restart_count(pod_name: str, namespace: str = "default") -> Optional
 def get_running_pods(label_selector: str = "app=hello-flask", namespace: str = "default") -> List[Dict[str, Any]]:
     """
     Get all running and ready pods matching the label selector.
+    Excludes pods that are being terminated.
     
     Args:
         label_selector: Kubernetes label selector (default: "app=hello-flask")
         namespace: Kubernetes namespace (default: "default")
         
     Returns:
-        List of running and ready pod dictionaries
+        List of running and ready pod dictionaries (excluding terminating pods)
         
     Example:
         running_pods = get_running_pods()
@@ -162,7 +163,8 @@ def get_running_pods(label_selector: str = "app=hello-flask", namespace: str = "
     running_pods = [
         pod for pod in pods
         if pod["status"]["phase"] == "Running" and
-        all(cs.get("ready", False) for cs in pod["status"].get("containerStatuses", []))
+        all(cs.get("ready", False) for cs in pod["status"].get("containerStatuses", [])) and
+        pod["metadata"].get("deletionTimestamp") is None  # Exclude terminating pods
     ]
     
     return running_pods

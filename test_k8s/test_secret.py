@@ -63,11 +63,11 @@ def test_deployment_references_secret(deployment, secret_name):
     print(f"✓ Deployment correctly references Secret '{secret_name}'")
 
 
-def test_secret_applied(pods):
+def test_secret_applied(running_pods):
     """Verify that Secret environment variables are applied to pods."""
-    assert len(pods) > 0, "No pods found to test Secret"
+    assert len(running_pods) > 0, "No running pods found to test Secret"
     
-    pod_name = pods[0]["metadata"]["name"]
+    pod_name = running_pods[0]["metadata"]["name"]
     
     # Execute printenv in the pod to check API_KEY variable
     result = exec_in_pod(pod_name, ["printenv", "API_KEY"])
@@ -80,11 +80,11 @@ def test_secret_applied(pods):
     print(f"✓ Secret applied: API_KEY={env_value}")
 
 
-def test_all_secret_values_in_pods(pods):
+def test_all_secret_values_in_pods(running_pods):
     """Verify that all Secret values are correctly injected into pods (decoded)."""
-    assert len(pods) > 0, "No pods found to test Secret"
+    assert len(running_pods) > 0, "No running pods found to test Secret"
     
-    pod_name = pods[0]["metadata"]["name"]
+    pod_name = running_pods[0]["metadata"]["name"]
     
     # Test all expected environment variables (should be decoded in pod)
     expected_env_vars = {

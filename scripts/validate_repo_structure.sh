@@ -161,11 +161,11 @@ check_file "README.md" "Main documentation"
 check_dir "docs" "Documentation directory"
 if [[ -d "docs" ]]; then
     check_file "docs/README.md" "Documentation index"
-    check_file "docs/CI_CD_GUIDE.md" "CI/CD guide"
+    check_file "docs/operations/CI_CD_GUIDE.md" "CI/CD guide"
     
     # Check for optional docs
     warn_if_missing "docs/DEBUGGING_CI_CD.md" "CI/CD debugging guide"
-    warn_if_missing "docs/testing/TEST_ARCHITECTURE.md" "Test architecture documentation"
+    warn_if_missing "docs/testing/architecture/TEST_ARCHITECTURE.md" "Test architecture documentation"
     
     # Count documentation files
     doc_count=$(find docs -name "*.md" -type f | wc -l)

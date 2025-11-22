@@ -1,7 +1,8 @@
 # This YAML file defines a Kubernetes Deployment for an application called "hello-flask".
-# It specifies that two replicas (pods) of the app should run, each using the Docker image `hello-flask:0.1`.
-# The deployment manages pods with the label `app: hello-flask`, exposes port 5000, and includes a readiness probe
-# that checks the root path ("/") on port 5000 to determine if the app is ready to receive traffic.
+# It specifies that two replicas (pods) of the app should run, each using the Docker image `hello-flask:latest`.
+# The deployment manages pods with the label `app: hello-flask`, exposes port 5000, and includes:
+# - A readiness probe that checks the root path ("/") to determine if the app is ready to receive traffic
+# - A liveness probe that checks the health endpoint ("/health") to detect crashed/deadlocked containers
 # This setup is used to deploy and manage a scalable, self-healing instance of your Flask app in a Kubernetes cluster.
 apiVersion: apps/v1
 kind: Deployment
@@ -28,19 +29,20 @@ spec:
         - containerPort: 5000
         readinessProbe:
           httpGet:
-            path: /
+            path: /ready
             port: 5000
           initialDelaySeconds: 2
           periodSeconds: 5
 
         livenessProbe:
           httpGet:
-            path: /
+            path: /health
             port: 5000
           initialDelaySeconds: 10
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 3
+          # successThreshold: 1 (implicit default)
 
         # --- Add configuration injection here ---
         envFrom:

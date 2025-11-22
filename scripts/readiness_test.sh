@@ -1,8 +1,11 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 # Function definitions
 run_automated_tests() {
@@ -19,27 +22,12 @@ run_manual_tests() {
     log_note "(These tests may involve timing and traffic routing validation)"
     echo ""
     
-    # Try to run manual readiness tests directly, handling the "no tests collected" case
-    set +e  # Temporarily disable exit on error
-    pytest test_k8s/ -v -s -m "manual" -k readiness
-    EXIT_CODE=$?
-    set -e  # Re-enable exit on error
-    
-    # Exit code 5 means no tests were collected
-    if [ $EXIT_CODE -eq 5 ]; then
-        echo ""
-        log_warning "No manual readiness tests found yet."
-        log_note "Manual readiness tests are planned for future implementation."
-        log_note "These would test traffic routing behavior and pod readiness validation."
-        echo ""
-        log_success "Skipping manual tests (none implemented yet)"
-        echo ""
-        exit 0
-    elif [ $EXIT_CODE -ne 0 ]; then
-        # Some other error occurred
-        log_error "Pytest failed with exit code $EXIT_CODE"
-        exit $EXIT_CODE
-    fi
+    # Use run_pytest_optional to handle exit code 5 (no tests collected)
+    run_pytest_optional \
+        "test_k8s/" \
+        "-v -s -m manual -k readiness" \
+        "" \
+        "No manual readiness tests found yet. Manual tests are planned for future implementation (traffic routing, pod readiness validation)."
 }
 
 run_config_only() {

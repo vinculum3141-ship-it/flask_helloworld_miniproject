@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # -----------------------------------------------------------------------------
 # NOTE: Manual helper script (not used by CI)
 #
@@ -18,15 +17,20 @@
 #
 # Use this script locally during development; CI runs stronger assertions in tests.
 # -----------------------------------------------------------------------------
+set -euo pipefail
 
-set -e
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 get_service_url() {
-    echo "[INFO] Checking service type..."
+    log_info "Checking service type..."
     SERVICE_TYPE=$(kubectl get svc hello-flask -o jsonpath='{.spec.type}' 2>/dev/null || echo "NotFound")
     
     if [ "$SERVICE_TYPE" = "NotFound" ]; then
-        echo "[ERROR] Service 'hello-flask' not found. Please deploy it first."
+        log_error "Service 'hello-flask' not found. Please deploy it first."
         exit 1
     fi
     

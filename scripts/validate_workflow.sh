@@ -1,10 +1,14 @@
 #!/bin/bash
+set -euo pipefail
 
 # GitHub Actions Workflow Validation Script
 # Validates CI/CD workflow configuration and dependencies
 
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 WORKFLOW_FILE=".github/workflows/ci-cd.yml"
 
@@ -54,7 +58,7 @@ echo -e "${BLUE}📁 Workflow File Check${NC}"
 echo "---------------------"
 if [[ ! -f "$WORKFLOW_FILE" ]]; then
     log_error "Workflow file not found: $WORKFLOW_FILE"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
     exit 1
 else
     log_success "Found workflow file: $WORKFLOW_FILE"
@@ -71,12 +75,12 @@ if command_exists yamllint; then
         log_success "YAML syntax is valid"
     else
         log_warning "YAML has formatting issues but may still work"
-        ((WARNINGS++))
+        WARNINGS=$((WARNINGS + 1))
     fi
 else
     log_warning "yamllint not found - install with: pip install yamllint"
     log_note "  Skipping syntax check"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 echo ""
 
@@ -92,7 +96,7 @@ if grep -q "^name:" "$WORKFLOW_FILE"; then
     log_success "Workflow name: $WORKFLOW_NAME"
 else
     log_error "Missing workflow name"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 if grep -q "^on:" "$WORKFLOW_FILE"; then
@@ -110,7 +114,7 @@ if grep -q "^on:" "$WORKFLOW_FILE"; then
     fi
 else
     log_error "Missing trigger events"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 if grep -q "^jobs:" "$WORKFLOW_FILE"; then
@@ -121,7 +125,7 @@ if grep -q "^jobs:" "$WORKFLOW_FILE"; then
     log_note "  Found $JOB_COUNT job(s)"
 else
     log_error "Missing jobs section"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 echo ""
@@ -134,7 +138,7 @@ if grep -qE "uses: .+@v[0-9]+" "$WORKFLOW_FILE"; then
     log_success "Using versioned actions"
 else
     log_warning "Consider using versioned actions (e.g., actions/checkout@v4)"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 # Check for timeouts
@@ -142,7 +146,7 @@ if grep -q "timeout-minutes:" "$WORKFLOW_FILE"; then
     log_success "Timeouts configured"
 else
     log_warning "Consider adding timeouts to prevent stuck jobs"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 # Check for cleanup steps
@@ -150,7 +154,7 @@ if grep -q "if: always()" "$WORKFLOW_FILE"; then
     log_success "Cleanup steps configured (if: always())"
 else
     log_warning "Consider adding cleanup steps with 'if: always()'"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 # Check for environment variables
@@ -165,7 +169,7 @@ if grep -q "permissions:" "$WORKFLOW_FILE"; then
     log_success "Permissions explicitly defined (security best practice)"
 else
     log_warning "Consider explicitly defining permissions for security"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 echo ""
@@ -178,14 +182,14 @@ if [[ -f "app/requirements.txt" ]]; then
     log_success "app/requirements.txt exists"
 else
     log_error "app/requirements.txt missing"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 if [[ -f "app/Dockerfile" ]]; then
     log_success "app/Dockerfile exists"
 else
     log_error "app/Dockerfile missing"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 # Check scripts directory
@@ -193,7 +197,7 @@ if [[ -d "scripts" ]]; then
     log_success "scripts/ directory exists"
 else
     log_error "scripts/ directory missing"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 # Check k8s manifests
@@ -205,7 +209,7 @@ if [[ -d "k8s" ]]; then
     log_note "  Found $MANIFEST_COUNT Kubernetes manifest(s)"
 else
     log_error "k8s/ directory missing"
-    ((ERRORS++))
+    ERRORS=$((ERRORS + 1))
 fi
 
 echo ""
@@ -227,11 +231,11 @@ else
                 echo -e "  ${GREEN}└─ ✅ Executable${NC}"
             else
                 echo -e "  ${YELLOW}└─ ⚠️  Not executable (run: chmod +x $script_path)${NC}"
-                ((WARNINGS++))
+                WARNINGS=$((WARNINGS + 1))
             fi
         else
             log_error "$script_path missing"
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         fi
     done
 fi
@@ -248,19 +252,19 @@ if command_exists kubectl; then
     if kubectl apply --dry-run=client -f k8s/ 2>&1 | grep -q "error:.*does not exist"; then
         echo -e "${YELLOW}⚠️  Minikube cluster not running - skipping kubectl validation${NC}"
         log_note "  Start Minikube to enable full validation: minikube start"
-        ((WARNINGS++))
+        WARNINGS=$((WARNINGS + 1))
     elif kubectl apply --dry-run=client -f k8s/ &>/dev/null; then
         log_success "All Kubernetes manifests are valid"
     else
         log_warning "Kubernetes manifest validation had issues"
         echo "Run this command for details:"
         echo "  kubectl apply --dry-run=client -f k8s/"
-        ((WARNINGS++))
+        WARNINGS=$((WARNINGS + 1))
     fi
 else
     log_warning "kubectl not found - skipping manifest validation"
     echo -e "  Install kubectl to validate manifests"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 fi
 
 echo ""

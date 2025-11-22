@@ -336,7 +336,15 @@ All bash scripts use a **shared utilities library** for consistent output and ea
   - `log_error()` - Error messages (red)
   - `log_note()` - Important notes (yellow)
 - **Header formatting**: `print_header()` - Consistent script headers
-- **Pytest helpers**: `run_pytest()` - Standardized test execution
+- **Debug mode**: `enable_debug_mode()` - Enable verbose trace output (set -x) via DEBUG or VERBOSE env vars
+- **Pytest helpers**: 
+  - `run_pytest()` - Standardized test execution (improved in Phase 3)
+  - `run_pytest_optional()` - Run tests that may not exist (handles exit code 5)
+- **Kubernetes helpers**:
+  - `kubectl_safe()` - Run kubectl with error context and logging
+  - `wait_for_pods_ready()` - Wait for pods to be ready with timeout
+- **Performance helpers**:
+  - `time_command()` - Execute command with timing information (Phase 3)
 - **Validation helpers**: 
   - `command_exists()` - Check if command is available
   - `check_git_repo()` - Verify we're in a git repository
@@ -344,13 +352,77 @@ All bash scripts use a **shared utilities library** for consistent output and ea
   - `get_scripts_dir()` - Get scripts directory path
   - `get_project_root()` - Get project root path
 
+### Advanced Helper Functions
+
+**`run_pytest(test_path, pytest_args, description)` (Phase 3 Improvement)**
+- Improved argument handling - no longer uses `eval` for better security
+- Properly handles complex pytest marker expressions
+- Example:
+  ```bash
+  run_pytest "test_k8s/" "-v -m 'not manual and not nodeport'"
+  run_pytest "app/tests/" "-v" "Testing Flask application"
+  ```
+
+**`run_pytest_optional(test_path, pytest_args, description, no_tests_message)`**
+- Handles pytest exit code 5 (no tests collected) gracefully
+- Useful for running optional or manual tests that may not exist yet
+- Improved in Phase 3: Better argument handling without `eval`
+- Example:
+  ```bash
+  run_pytest_optional \
+      "test_k8s/" \
+      "-v -m manual -k readiness" \
+      "Running optional manual tests" \
+      "No manual tests found yet (this is okay)"
+  ```
+
+**`kubectl_safe(description, kubectl_args...)`**
+- Wrapper for kubectl commands with better error messages
+- Logs what operation is being performed
+- Provides context on failure
+- Example:
+  ```bash
+  kubectl_safe "Applying deployment" apply -f k8s/deployment.yaml
+  kubectl_safe "Waiting for rollout" rollout status deployment/hello-flask
+  ```
+
+**`wait_for_pods_ready(label, timeout)`**
+- Wait for pods matching a label to be ready
+- Default timeout is 60 seconds
+- Example:
+  ```bash
+  wait_for_pods_ready "app=hello-flask" 60
+  wait_for_pods_ready "app=hello-flask"  # Uses default 60s
+  ```
+
+**`time_command(description, command...)` (Phase 3 New)**
+- Execute a command and log execution time
+- Useful for performance tracking and identifying slow operations
+- Logs success/failure with duration
+- Example:
+  ```bash
+  time_command "Building Docker image" docker build -t myapp:latest .
+  time_command "Running tests" make test
+  time_command "Deploying to cluster" kubectl apply -f k8s/
+  ```
+  Output:
+  ```
+  [INFO] Starting: Building Docker image
+  ...command output...
+  ✅ Completed in 45s: Building Docker image
+  ```
+
 ### Benefits
 
 ✅ **Single source of truth** - Colors and formatting defined once  
 ✅ **Consistent output** - All scripts use the same style  
 ✅ **Easier maintenance** - Update logging in one place, applies everywhere  
-✅ **Better error handling** - Standardized error messages and exit codes  
+✅ **Better error handling** - Standardized error messages and strict error handling (`set -euo pipefail`)  
 ✅ **Code reuse** - Common patterns extracted into reusable functions  
+✅ **Easy debugging** - Enable verbose trace mode with `DEBUG=1` or `VERBOSE=1` environment variable  
+✅ **Robust operations** - kubectl_safe() and wait_for_pods_ready() improve reliability  
+✅ **Secure argument handling** - Removed `eval` usage for safer command execution (Phase 3)  
+✅ **Performance visibility** - time_command() helps identify slow operations (Phase 3)  
 
 ### Usage Pattern
 
@@ -392,6 +464,43 @@ When you run a script, you'll see consistent, color-coded output:
 ℹ Processing started...
 ✓ All done!
 ```
+
+### Debug Mode
+
+All scripts support verbose debugging mode for troubleshooting. When enabled, the shell will print each command before executing it (using `set -x`).
+
+**Enable debug mode:**
+
+```bash
+# Using DEBUG environment variable
+DEBUG=1 bash scripts/unit_tests.sh
+
+# Using VERBOSE environment variable (alternative)
+VERBOSE=1 bash scripts/smoke_test.sh
+
+# Works with any script
+DEBUG=1 bash scripts/build_image.sh
+```
+
+**Example debug output:**
+
+```
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  Unit Tests
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🔍 Debug mode enabled (set -x)
++ SCRIPT_DIR=/home/user/flask_helloworld_miniproject/scripts
++ PROJECT_ROOT=/home/user/flask_helloworld_miniproject
++ cd /home/user/flask_helloworld_miniproject
++ pytest app/tests/ -v
+...
+```
+
+**When to use:**
+- 🐛 Debugging script failures
+- 🔍 Understanding script execution flow
+- 🛠️ Troubleshooting environment issues
+- 📊 Investigating unexpected behavior
 
 ---
 
@@ -820,6 +929,28 @@ kubectl get all -l app=hello-flask  # Should show no resources
 ---
 
 ## Troubleshooting
+
+### Script Debugging
+
+**Problem:** Script behaving unexpectedly or failing with unclear errors
+
+**Solution:**
+```bash
+# Enable debug mode to see detailed execution trace
+DEBUG=1 bash scripts/<script-name>.sh
+
+# Example: Debug unit tests
+DEBUG=1 bash scripts/unit_tests.sh
+
+# Example: Debug build process
+VERBOSE=1 bash scripts/build_image.sh
+```
+
+This shows:
+- ✅ Every command executed by the script
+- ✅ Variable values at each step
+- ✅ Exact point of failure
+- ✅ Environment and path information
 
 ### Script Fails with "command not found"
 

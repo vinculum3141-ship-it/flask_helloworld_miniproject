@@ -10,6 +10,9 @@
 
 set -euo pipefail
 
+# Note: This script defines its own colors for --markdown-only mode compatibility
+# It does not source common.sh to keep it standalone and flexible
+
 # Check for markdown-only mode
 MARKDOWN_ONLY=false
 if [[ "${1:-}" == "--markdown-only" ]] || [[ "${2:-}" == "--markdown-only" ]] || [[ "${3:-}" == "--markdown-only" ]]; then

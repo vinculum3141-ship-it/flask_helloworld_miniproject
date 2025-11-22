@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # -----------------------------------------------------------------------------
 # NOTE: Example helper script (manual use)
 #
@@ -15,34 +14,32 @@
 # script tags `:latest` only.
 # -----------------------------------------------------------------------------
 
-set -e
+set -euo pipefail
 
-# Colors for output
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
 
-print_header() {
-    echo -e "${BLUE}================================================${NC}"
-    echo -e "${BLUE}  Building Docker Image${NC}"
-    echo -e "${BLUE}================================================${NC}"
-}
+# Enable debug mode if requested
+enable_debug_mode
 
 # Function: build Docker image for Minikube
 build_image() {
-    echo -e "\n${GREEN}[INFO] Switching to Minikube Docker environment...${NC}"
+    log_info "Switching to Minikube Docker environment..."
     eval $(minikube docker-env)
 
-    echo -e "${GREEN}[INFO] Building Docker image 'hello-flask:latest'...${NC}"
+    log_info "Building Docker image 'hello-flask:latest'..."
     docker build -t hello-flask:latest ./app
 
-    echo -e "\n${GREEN}[INFO] Docker image built successfully.${NC}"
-    echo -e "${YELLOW}Available images:${NC}"
+    echo ""
+    log_info "Docker image built successfully."
+    log_note "Available images:"
     docker images | grep hello-flask || echo "No hello-flask images found"
 }
 
-# Run
-print_header
+# Main execution
+print_header "Building Docker Image"
+echo ""
 build_image
-echo -e "\n${GREEN}✅ Image build completed!${NC}\n"
+echo ""
+log_success "Image build completed!"
+echo ""

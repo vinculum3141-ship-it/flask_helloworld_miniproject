@@ -4,6 +4,9 @@ set -euo pipefail
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
 
+# Enable debug mode if requested
+enable_debug_mode
+
 # Cleanup function
 cleanup_app() {
     echo ""

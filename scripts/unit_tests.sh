@@ -1,8 +1,11 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 # Main execution
 print_header "Python Unit Tests"

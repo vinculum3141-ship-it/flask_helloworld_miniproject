@@ -290,7 +290,36 @@ gh pr create --title "Feature: My Feature" --body "Description..."
 
 ### Common Issues
 
-#### 1. **Script Permission Denied**
+#### 1. **Script Debugging**
+
+**Symptom**:
+```
+Script fails with unclear error or unexpected behavior
+```
+
+**Solution**:
+```bash
+# Enable debug mode to see detailed execution trace
+DEBUG=1 bash scripts/validate_repo_structure.sh
+DEBUG=1 bash scripts/validate_workflow.sh
+
+# Or use VERBOSE as alternative
+VERBOSE=1 bash scripts/validate_repo_structure.sh
+```
+
+**What you'll see:**
+- Every command executed by the script
+- Variable values at each step
+- Exact point of failure
+- Full execution trace with `set -x`
+
+**When to use:**
+- 🐛 Script fails with unclear error
+- 🔍 Need to understand script behavior
+- 🛠️ Investigating environment issues
+- 📊 Debugging validation failures
+
+#### 2. **Script Permission Denied**
 
 **Symptom**:
 ```
@@ -304,7 +333,7 @@ chmod +x scripts/validate_repo_structure.sh
 chmod +x scripts/*.sh
 ```
 
-#### 2. **yamllint Not Found**
+#### 3. **yamllint Not Found**
 
 **Symptom**:
 ```
@@ -316,7 +345,7 @@ chmod +x scripts/*.sh
 pip install yamllint
 ```
 
-#### 3. **kubectl Not Available**
+#### 4. **kubectl Not Available**
 
 **Symptom**:
 ```
@@ -333,7 +362,7 @@ sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
 minikube kubectl -- version
 ```
 
-#### 4. **Minikube Cluster Not Running**
+#### 5. **Minikube Cluster Not Running**
 
 **Symptom**:
 ```
@@ -347,7 +376,7 @@ minikube start
 bash scripts/validate_workflow.sh
 ```
 
-#### 5. **GitHub CLI Not Authenticated**
+#### 6. **GitHub CLI Not Authenticated**
 
 **Symptom**:
 ```

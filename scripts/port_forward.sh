@@ -25,8 +25,14 @@
 # -----------------------------------------------------------------------------
 set -euo pipefail
 
+# Source common utilities
+source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
+
 port_forward_app() {
-    echo "[INFO] Checking service type..."
+    log_info "Checking service type..."
     SERVICE_TYPE=$(kubectl get svc hello-flask -o jsonpath='{.spec.type}' 2>/dev/null || echo "NotFound")
     
     if [ "$SERVICE_TYPE" = "NotFound" ]; then

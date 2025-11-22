@@ -1,8 +1,11 @@
 #!/bin/bash
-set -e
+set -euo pipefail
 
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 # Health Endpoint Testing Script
 # Temporarily switches service to NodePort, runs health endpoint tests, then restores ClusterIP
@@ -26,6 +29,18 @@ restore_service() {
     # Simply patch back to ClusterIP (simpler than full restore)
     kubectl patch service hello-flask -p '{"spec":{"type":"ClusterIP"}}' > /dev/null 2>&1 || true
     rm -f /tmp/hello-flask-service-backup.yaml
+    
+    # Wait for service to stabilize after type change
+    log_info "Waiting for service to stabilize..."
+    sleep 5
+    
+    # Ensure all pods are ready after any restarts during tests
+    kubectl wait --for=condition=ready pod -l app=hello-flask --timeout=60s > /dev/null 2>&1 || true
+    
+    # Additional wait for ingress to fully recognize the service change
+    log_info "Allowing time for ingress controller to update..."
+    sleep 3
+    
     log_success "Service restored to ClusterIP"
 }
 

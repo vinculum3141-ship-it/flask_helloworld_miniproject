@@ -1,10 +1,14 @@
 #!/bin/bash
+set -euo pipefail
 
 # Repository Structure Validation Script
 # Validates that all required files and directories exist for the Flask Kubernetes project
 
 # Source common utilities
 source "$(dirname "$0")/lib/common.sh"
+
+# Enable debug mode if requested
+enable_debug_mode
 
 # Track validation status
 ERRORS=0
@@ -29,7 +33,7 @@ check_file() {
         return 0
     else
         echo -e "  ${RED}❌${NC} $description ${RED}(missing: $file)${NC}"
-        ((ERRORS++))
+        ERRORS=$((ERRORS + 1))
         return 1
     fi
 }
@@ -42,7 +46,7 @@ check_dir() {
         return 0
     else
         echo -e "  ${RED}❌${NC} $description ${RED}(missing: $dir)${NC}"
-        ((ERRORS++))
+        ERRORS=$((ERRORS + 1))
         return 1
     fi
 }
@@ -52,7 +56,7 @@ warn_if_missing() {
     local description=$2
     if [[ ! -e "$file" ]]; then
         echo -e "  ${YELLOW}⚠️${NC}  $description ${YELLOW}(optional: $file)${NC}"
-        ((WARNINGS++))
+        WARNINGS=$((WARNINGS + 1))
     fi
 }
 
@@ -111,7 +115,7 @@ if [[ -d "scripts" ]]; then
                 echo -e "    ${GREEN}✅${NC} $(basename "$script") is executable"
             else
                 echo -e "    ${YELLOW}⚠️${NC}  $(basename "$script") not executable (run: chmod +x $script)"
-                ((WARNINGS++))
+                WARNINGS=$((WARNINGS + 1))
             fi
         fi
     done
